@@ -19,9 +19,10 @@ class Purchase extends Model
         'purchase_date' => 'date',
         'purchase_subtotal' => 'decimal:2',
         'purchase_grand_total' => 'decimal:2',
+        'purchase_status' => 'string',
     ];
 
-    public function details()
+    public function purchase_detail()
     {
         return $this->hasMany(PurchaseDetail::class, 'purchase_invoice_number', 'purchase_invoice_number');
     }

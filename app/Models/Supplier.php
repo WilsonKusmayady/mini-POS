@@ -8,8 +8,13 @@ class Supplier extends Model
 {
     //
     protected $primaryKey = 'supplier_id';
-    public $incrementing = false;
-    protected $keyType = 'integer';
+    public $incrementing = true;
+    protected $keyType = 'int';
 
     protected $guarded = [];
+
+    public function purchase()
+    {
+        return $this->hasMany(Purchase::class, 'supplier_id', 'supplier_id');
+    }
 }

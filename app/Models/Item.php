@@ -15,9 +15,21 @@ class Item extends Model
 
     protected $guarded = [];
 
+    
+
     protected $casts = [
         'item_price' => 'decimal:2',
         'item_stock' => 'integer',
         'item_min_stock' => 'integer',
     ];
+
+    public function purchase_details()
+    {
+        return $this->hasMany(PurchaseDetail::class, 'item_code', 'item_code');
+    }
+
+    public function sales_details()
+    {
+        return $this->hasMany(SalesDetail::class, 'item_code', 'item_code');
+    }
 }

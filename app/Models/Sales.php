@@ -18,11 +18,14 @@ class Sale extends Model
     protected $casts = [
         'sales_date' => 'date',
         'sales_subtotal' => 'decimal:2',
+        'sales_discount_value' => 'decimal:2',
+        'sales_hasil_discount_value' => 'decimal:2',
         'sales_grand_total' => 'decimal:2',
+        'sales_payment_method' => 'string',
         'sales_status' => 'boolean',
     ];
 
-    public function details()
+    public function sales_details()
     {
         return $this->hasMany(SalesDetail::class, 'sales_invoice_code', 'sales_invoice_code');
     }

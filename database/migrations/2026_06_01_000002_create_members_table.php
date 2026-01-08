@@ -11,10 +11,10 @@ return new class extends Migration
         Schema::create('members', function (Blueprint $table) {
             $table->string('member_code')->primary();
             $table->string('member_name');
-            $table->string('phone_number')->nullable();
-            $table->text('address')->nullable();
-            $table->enum('gender', ['L', 'P']);
-            $table->date('birth_date')->nullable();
+            $table->string('phone_number');
+            $table->text('address');
+            $table->boolean('gender'); // 1 = L, 0 = P            
+            $table->date('birth_date');
             $table->timestamps();
         });
     }

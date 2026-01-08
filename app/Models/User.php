@@ -14,12 +14,22 @@ class User extends Authenticatable
     protected $primaryKey = 'user_id';
 
     protected $guarded = [];
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'remember_token'];
 
     protected function casts():array {
         return [
             'password' => 'hashed',
             'user_role' => 'boolean'
         ];
+    }
+
+    public function purchase()
+    {
+        return $this->hasMany(Purchase::class, 'user_id', 'user_id');
+    }
+
+    public function sales() 
+    {
+        return $this->hasMany(Sales::class, 'user_id', 'user_id');
     }
 }

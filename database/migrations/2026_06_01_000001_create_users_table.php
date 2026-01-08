@@ -10,10 +10,11 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id('user_id'); // PK, Auto Increment
-            $table->string('name');
+            $table->string('user_name')->unique();
             $table->string('password');
             // 0: Staff, 1: Owner/Admin
             $table->boolean('user_role')->default(0);
+            $table->rememberToken();
             $table->timestamps();
         });
     }
