@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Sales_Detail extends Model
+class SalesDetail extends Model
 {
     protected $primaryKey = 'sales_detail_id';
     public $incrementing = false;
