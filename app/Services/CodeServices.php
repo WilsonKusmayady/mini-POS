@@ -8,8 +8,6 @@ use App\Models\Sale;
 
 class CodeGeneratorService
 {
-    // TODO: Refactor to use Repositories instead of Models directly
-
     public function generateItemCode(): string
     {
         $latest = Item::orderBy('item_code', 'desc')->first();
