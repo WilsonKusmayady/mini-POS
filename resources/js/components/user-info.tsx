@@ -6,24 +6,28 @@ export function UserInfo({
     user,
     showEmail = false,
 }: {
-    user: User;
+    user: User | null; // Izinkan user bernilai null
     showEmail?: boolean;
 }) {
     const getInitials = useInitials();
 
+    // Jika user tidak ada, jangan tampilkan apa-apa (atau tampilkan loading)
+    if (!user) return null; 
+
     return (
         <>
             <Avatar className="h-8 w-8 overflow-hidden rounded-full">
-                <AvatarImage src={user.avatar} alt={user.name} />
+                {/* Gunakan optional chaining (?.) untuk keamanan ekstra */}
+                <AvatarImage src={user?.avatar} alt={user?.name} />
                 <AvatarFallback className="rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                    {getInitials(user.name)}
+                    {getInitials(user?.name || '')}
                 </AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate font-medium">{user?.name}</span>
                 {showEmail && (
                     <span className="truncate text-xs text-muted-foreground">
-                        {user.email}
+                        {user?.email}
                     </span>
                 )}
             </div>
