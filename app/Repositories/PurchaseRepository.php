@@ -13,12 +13,12 @@ class PurchaseRepository {
     }
 
     public function getLatestByPrefix($prefix) {
-        return purchase::where('purchase_invoice_number', 'like', $prefix . '%')
+        return Purchase::where('purchase_invoice_number', 'like', $prefix . '%')
         ->orderBy('purchase_invoice_number', 'desc')->first();
     }
 
     public function getPurchaseWithDetails($invoiceNumber) {
-        return purchase::with(['details.item', 'user', 'supplier'])
+        return Purchase::with(['details.item', 'user', 'supplier'])
         ->where('purchase_invoice_number', $invoiceNumber)->first();
     }
 }

@@ -20,6 +20,22 @@ class UserService
         return $this->userRepo->getAll();
     }
 
+    public function attemptLogin(array $credentials)
+    {
+        if (!Auth::attempt([
+            'user_name' => $credentials['user_name'], 
+            'password' => $credentials['password']
+        ], $credentials['remember'] ?? false)) {
+            
+            throw ValidationException::withMessages([
+                'user_name' => ['Username atau password salah.'],
+            ]);
+        }
+
+        request()->session()->regenerate();
+        return true;
+    }
+
     public function createUser(array $data)
     {
         // 1. Enkripsi Password sebelum simpan

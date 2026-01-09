@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\Purchase;
-use App\Models\Sale;
+use App\Models\Sales;
 
 class CodeGeneratorService
 {
@@ -24,7 +24,7 @@ class CodeGeneratorService
     {
         $prefix = 'INV-S' . date('y') . date('m');
         
-        $latest = Sale::where('sales_invoice_code', 'like', $prefix . '%')
+        $latest = Sales::where('sales_invoice_code', 'like', $prefix . '%')
             ->orderBy('sales_invoice_code', 'desc')
             ->first();
 
