@@ -10,7 +10,7 @@ interface UserRepositoryInterface
 
     public function findById($id);
 
-    public function findByUsername(string $username): ?User;
+    public function findByUsername(string $username);
 
     public function store(array $data);
 

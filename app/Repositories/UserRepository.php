@@ -16,7 +16,7 @@ class UserRepository
         return User::where('user_id', $id)->firstOrFail();
     }
 
-    public function findByUsername(string $username): ?User
+    public function findByUsername(string $username)
     {
         return User::where('user_name', $username)->first();
     }
