@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
+
 use Exception;
 
 class UserService

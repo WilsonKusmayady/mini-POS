@@ -13,7 +13,17 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { 
+    BookOpen, 
+    Folder, 
+    LayoutGrid,
+    ShoppingCart,  // Untuk Pembelian
+    CreditCard,    // Untuk Penjualan
+    Users,         // Untuk Membership/User
+    User,          // Untuk User (alternatif)
+    Package,       // Untuk Item
+    DollarSign     // Alternatif untuk Penjualan
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -21,6 +31,31 @@ const mainNavItems: NavItem[] = [
         title: 'Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Pembelian',
+        href: '/purchases',  
+        icon: ShoppingCart,
+    },
+    {
+        title: 'Penjualan',
+        href: '/sales',  
+        icon: CreditCard,
+    },
+    {
+        title: 'Membership',
+        href: '/memberships',  
+        icon: Users,
+    },
+    {
+        title: 'User',
+        href: '/users', 
+        icon: User,
+    },
+    {
+        title: 'Item',
+        href: '/items',  
+        icon: Package,
     },
 ];
 
