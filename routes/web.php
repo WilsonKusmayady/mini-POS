@@ -12,9 +12,11 @@ use App\Http\Controllers\ItemController;      // Controller untuk Inventory
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
+    // Menampilkan halaman login
     Route::get('/login-karyawan', [UserController::class, 'showLogin'])
-        ->name('login.karyawan'); // Ubah jadi nama unik
+        ->name('login');
 
+    // Proses submit login
     Route::post('/login-karyawan', [UserController::class, 'login'])
         ->name('login.process');
 });
