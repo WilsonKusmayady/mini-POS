@@ -78,4 +78,10 @@ class ItemController extends Controller
         $this->itemService->deleteItem($itemCode);
         return redirect()->back()->with('success', 'Barang berhasil dihapus');
     }
+
+    public function search(Request $request) {
+        $search = $request->input('q');
+        $items = $this->itemService->getItemsForDropdown($request->page, $search);
+        return response()->json($items);
+    }
 }

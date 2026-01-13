@@ -29,7 +29,6 @@ class ItemService {
             $code = $this->codeGeneratorService->generateItemCode();
 
             // MERGE DATA:
-            // Kita paksa stok jadi 0, meskipun user input angka lain
             $finalData = array_merge($data, [
                 'item_code' => $code,
                 'item_stock' => $data['item_stock'] ?? 0
@@ -45,5 +44,9 @@ class ItemService {
 
     public function deleteItem($code) {
         return $this->itemRepository->destroy($code);
+    }
+
+    public function getItemsForDropdown($page = 1, $search = '') {
+        return $this->itemRepository->getPaginated(15, $search);
     }
 }

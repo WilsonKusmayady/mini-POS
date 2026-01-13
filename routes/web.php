@@ -2,13 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\UserController;      // Controller untuk Login/Logout
-use App\Http\Controllers\PurchaseController;  // Controller untuk Purchase
-use App\Http\Controllers\ItemController;      // Controller untuk Inventory
+use App\Http\Controllers\UserController;      
+use App\Http\Controllers\PurchaseController; 
+use App\Http\Controllers\ItemController;     
 
 /*
 |--------------------------------------------------------------------------
-| GUEST ROUTES (Hanya bisa diakses jika BELUM login)
+| GUEST ROUTES 
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
@@ -23,7 +23,7 @@ Route::middleware('guest')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| AUTHENTICATED ROUTES (Hanya bisa diakses jika SUDAH login)
+| AUTHENTICATED ROUTES
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -36,6 +36,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // 2. Logout
     Route::post('/logout', [UserController::class, 'logout'])
         ->name('logout');
+
+    // --- ROUTE API SEARCH ---
+    Route::get('/items/search', [ItemController::class, 'search'])
+        ->name('items.search');
 
     // 3. Inventory (Items) - Resource Route (CRUD Lengkap)
     Route::resource('items', ItemController::class);

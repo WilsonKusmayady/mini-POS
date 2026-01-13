@@ -6,8 +6,25 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Save } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { Trash2, Plus, Save, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { FormEventHandler, useState, useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import axios from 'axios';
+
+// --- Tipe Data ---
 
 interface Supplier {
     supplier_id: number;
@@ -25,15 +42,146 @@ interface PurchaseItem {
     item_name: string;
     buy_price: number;
     quantity: number;
-    discount_item: number; // [Baru] Field untuk diskon persen
+    discount_item: number;
 }
 
 interface CreateProps {
     suppliers: Supplier[];
-    items: Item[];
+    // items: Item[]; 
 }
 
-export default function PurchaseCreate({ suppliers, items }: CreateProps) {
+// --- Komponen Item Combobox (Async) ---
+
+interface ItemComboboxProps {
+    value: string;
+    onSelect: (item: Item) => void;
+}
+
+const ItemCombobox = ({ value, onSelect }: ItemComboboxProps) => {
+    const [open, setOpen] = useState(false);
+    const [items, setItems] = useState<Item[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    
+    // Simpan item yang terpilih agar labelnya tetap muncul meskipun list di-refresh
+    const [selectedItemCache, setSelectedItemCache] = useState<Item | null>(null);
+
+    // Fungsi Fetch Data
+    const fetchItems = async (pageParam: number, searchParam: string, reset = false) => {
+        try {
+            setLoading(true);
+            const { data } = await axios.get('/items/search', {
+                params: {
+                    page: pageParam,
+                    q: searchParam
+                }
+            });
+
+            // Asumsi response API Laravel paginate: { data: [...], next_page_url: ... }
+            const newItems = data.data; 
+            
+            setItems(prev => reset ? newItems : [...prev, ...newItems]);
+            setHasMore(!!data.next_page_url);
+            setLoading(false);
+        } catch (error) {
+            console.error("Gagal load item", error);
+            setLoading(false);
+        }
+    };
+
+    // Effect: Reset & Fetch saat search berubah
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setPage(1);
+            fetchItems(1, search, true);
+        }, 300); // Debounce 300ms
+        return () => clearTimeout(timeoutId);
+    }, [search]);
+
+    // Effect: Load more saat scroll mentok bawah
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop <= clientHeight + 50) { // Threshold 50px sebelum bawah
+            if (!loading && hasMore) {
+                const nextPage = page + 1;
+                setPage(nextPage);
+                fetchItems(nextPage, search, false);
+            }
+        }
+    };
+
+    // Tentukan label yang ditampilkan di tombol trigger
+    // Prioritas: 1. Item di list saat ini, 2. Cache item terpilih, 3. Value code raw
+    const displayLabel = items.find(i => i.item_code === value)?.item_name 
+        || selectedItemCache?.item_name 
+        || (value ? `Item ${value}` : "Pilih Item...");
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between font-normal"
+                >
+                    <span className="truncate">{displayLabel}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+                <Command shouldFilter={false}> {/* Matikan filter client-side */}
+                    <CommandInput 
+                        placeholder="Cari kode atau nama..." 
+                        value={search}
+                        onValueChange={setSearch}
+                    />
+                    <CommandList onScroll={handleScroll} className="max-h-[250px] overflow-y-auto">
+                        {items.length === 0 && !loading && (
+                            <CommandEmpty>Item tidak ditemukan.</CommandEmpty>
+                        )}
+                        <CommandGroup>
+                            {items.map((item) => (
+                                <CommandItem
+                                    key={item.item_code}
+                                    value={item.item_code} // Penting: value harus unique string
+                                    onSelect={() => {
+                                        onSelect(item);
+                                        setSelectedItemCache(item);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === item.item_code ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    <div className="flex flex-col">
+                                        <span>{item.item_name}</span>
+                                        <span className="text-xs text-muted-foreground">Stok: {item.item_stock} | Kode: {item.item_code}</span>
+                                    </div>
+                                </CommandItem>
+                            ))}
+                            {loading && (
+                                <div className="p-2 flex justify-center items-center text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2"/> Memuat...
+                                </div>
+                            )}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
+
+// --- Main Component ---
+
+export default function PurchaseCreate({ suppliers }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         supplier_id: '',
         purchase_date: new Date().toISOString().split('T')[0],
@@ -49,7 +197,7 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                 item_name: '', 
                 buy_price: 0, 
                 quantity: 1, 
-                discount_item: 0 // Default diskon 0%
+                discount_item: 0 
             }
         ]);
     };
@@ -61,22 +209,27 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
         setData('items', newItems);
     };
 
-    // Helper: Update Data Row
+    // Helper: Update Data Row (General)
     const updateItemRow = (index: number, field: keyof PurchaseItem, value: any) => {
         const newItems = [...data.items];
         newItems[index] = { ...newItems[index], [field]: value };
-
-        // Auto-fill nama barang saat item dipilih
-        if (field === 'item_code') {
-            const selectedItem = items.find(i => i.item_code === value);
-            if (selectedItem) {
-                newItems[index].item_name = selectedItem.item_name;
-            }
-        }
         setData('items', newItems);
     };
 
-    // Kalkulasi Grand Total (Memperhitungkan Diskon)
+    // Helper: Khusus saat memilih Item dari Combobox
+    const handleItemSelect = (index: number, item: Item) => {
+        const newItems = [...data.items];
+        newItems[index] = {
+            ...newItems[index],
+            item_code: item.item_code,
+            item_name: item.item_name,
+            // Jika punya harga beli default di database, bisa set di sini:
+            // buy_price: item.last_buy_price || 0
+        };
+        setData('items', newItems);
+    };
+
+    // Kalkulasi Grand Total
     const grandTotal = data.items.reduce((acc, item) => {
         const priceAfterDiscount = item.buy_price - (item.buy_price * (item.discount_item / 100));
         return acc + (priceAfterDiscount * item.quantity);
@@ -172,28 +325,17 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                                         </TableRow>
                                     )}
                                     {data.items.map((item, index) => {
-                                        // Hitung subtotal per baris untuk ditampilkan
                                         const priceAfterDiscount = item.buy_price - (item.buy_price * (item.discount_item / 100));
                                         const rowSubtotal = priceAfterDiscount * item.quantity;
 
                                         return (
                                             <TableRow key={index}>
                                                 <TableCell>
-                                                    <Select 
+                                                    {/* Custom Async Combobox */}
+                                                    <ItemCombobox 
                                                         value={item.item_code}
-                                                        onValueChange={(val) => updateItemRow(index, 'item_code', val)}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Pilih Item" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {items.map((i) => (
-                                                                <SelectItem key={i.item_code} value={i.item_code}>
-                                                                    {i.item_name} (Stok: {i.item_stock})
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        onSelect={(selectedItem) => handleItemSelect(index, selectedItem)}
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
                                                     <Input 
@@ -213,7 +355,6 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {/* Input Diskon */}
                                                     <Input 
                                                         type="number" 
                                                         min="0"

@@ -12,6 +12,14 @@ class ItemRepository implements ItemRepositoryInterface {
         return Item::where('item_code', $code)->first();
     }
 
+    public function getPaginated(int $perPage, string $search = null) {
+        $query = Item::query();
+        if($search) {
+            $query->where('item_name', 'ilike', "%{$search}%")->orWhere('item_code', 'ilike', "%{$search}%");
+        }
+        return $query->orderby('item_name', 'asc')->paginate($perPage);
+    }
+
     public function store(array $data) {
         return Item::create($data);
     }
