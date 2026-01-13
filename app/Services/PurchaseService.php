@@ -72,7 +72,7 @@ class PurchaseService
                 'purchase_date' => $data['purchase_date'],
                 'purchase_subtotal' => $grandTotal, // Asumsi subtotal = grand total (sebelum pajak global)
                 'purchase_grand_total' => $grandTotal,
-                'purchase_status' => 'completed', 
+                'purchase_status' => 'paid', 
             ]);
 
             // 3. Simpan Details & Update Stok
