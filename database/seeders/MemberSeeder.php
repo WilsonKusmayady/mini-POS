@@ -13,7 +13,7 @@ class MemberSeeder extends Seeder
     {
         $codeGenerator = app(CodeGeneratorService::class);
 
-        $totalMembers = 10;
+        $totalMembers = 50;
 
         for ($i = 0; $i < $totalMembers; $i++) {
             Member::create([

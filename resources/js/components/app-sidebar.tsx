@@ -17,42 +17,57 @@ import {
     Users,
     User,
     Package,
+    Database,
+    FileText,
 } from 'lucide-react';
+import { type NavItem } from '@/types';
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
 
-    const navMain = [
+    const navMain: NavItem[] = [
         {
             title: 'Dashboard',
             href: '/',
             icon: LayoutGrid,
         },
         {
-            title: 'Pembelian',
-            href: '/purchase/create',
-            icon: ShoppingCart,
+            title: 'Master Data',
+            icon: Database,
+            items: [
+                {
+                    title: 'User',
+                    href: '/users',
+                    icon: User,
+                },
+                {
+                    title: 'Membership',
+                    href: '/members',
+                    icon: Users,
+                },
+                {
+                    title: 'Inventory',
+                    href: '/items',
+                    icon: Package,
+                },
+            ],
         },
         {
-            title: 'Penjualan',
-            href: '/sales',
-            icon: CreditCard,
-        },
-        {
-            title: 'Membership',
-            href: '/memberships',
-            icon: Users,
-        },
-        {
-            title: 'User',
-            href: '/users',
-            icon: User,
-        },
-        {
-            title: 'Inventory',
-            href: '/items',
-            icon: Package,
+            title: 'Transaksi',
+            icon: FileText,
+            items: [
+                {
+                    title: 'Pembelian',
+                    href: '/purchase/create',
+                    icon: ShoppingCart,
+                },
+                {
+                    title: 'Penjualan',
+                    href: '/sales',
+                    icon: CreditCard,
+                },
+            ],
         },
     ];
 

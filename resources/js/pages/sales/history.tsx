@@ -54,11 +54,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   {
     title: 'Penjualan',
     href: appRoutes.sales.index(),
-  },
-  {
-    title: 'Riwayat Penjualan',
-    href: appRoutes.sales.history(),
-  },
+  }
 ];
 
 interface Sale {
@@ -426,8 +422,8 @@ export default function SalesHistory({ sales = [] }: SalesHistoryProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {/* {sales.length} */}
-                6
+                {sales.length}
+                
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Transaksi penjualan

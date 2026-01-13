@@ -77,15 +77,15 @@ class SaleRepository implements SaleRepositoryInterface
                 'sales_status' => $sale->sales_status,
                 'user_id' => $sale->user_id,
                 'created_at' => $sale->created_at->toISOString(),
-                'sales_details' => $sale->items->map(function ($item) {
+                'items' => $sale->sales_details->map(function ($detail) {
                     return [
-                        'item_code' => $item->item_code,
-                        'item_name' => $item->item->item_name ?? 'Unknown Item',
-                        'sales_quantity' => $item->sales_quantity,
-                        'sell_price' => (float) $item->sell_price,
-                        'sales_discount_item' => (float) $item->sales_discount_item,
-                        'sales_hasil_diskon_item' => (float) $item->sales_hasil_diskon_item,
-                        'total_item_price' => (float) $item->total_item_price,
+                        'item_code' => $detail->item_code,
+                        'item_name' => $detail->item->item_name ?? 'Unknown Item',
+                        'sales_quantity' => $detail->sales_quantity,
+                        'sell_price' => (float) $detail->sell_price,
+                        'sales_discount_item' => (float) $detail->sales_discount_item,
+                        'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
+                        'total_item_price' => (float) $detail->total_item_price,
                     ];
                 })->toArray(),
             ];

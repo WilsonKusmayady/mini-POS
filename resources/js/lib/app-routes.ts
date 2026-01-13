@@ -26,6 +26,17 @@ export const appRoutes = {
         edit: (id: number | string) => `/sales/${id}/edit`,
         show: (id: number | string) => `/sales/${id}`,
     },
+
+    members: {
+        index: () => '/members',
+        create: () => '/members/create',
+        edit: (id: string) => `/members/${id}/edit`,
+        show: (id: string) => `/members/${id}`,
+        api: {
+            list: () => '/api/members', 
+            destroy: (id: string) => `/api/members/${id}`,
+        },
+    },
 } as const;
 
 export type AppRoutes = typeof appRoutes;

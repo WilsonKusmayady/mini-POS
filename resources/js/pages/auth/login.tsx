@@ -6,10 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import AuthLayout from '@/layouts/auth-layout'
-import { register } from '@/routes'
-import login from '@/routes/login'
-import { request } from '@/routes/password'
-import { Form, Head } from '@inertiajs/react'
+import { appRoutes } from '@/lib/app-routes'
+import { Head, useForm } from '@inertiajs/react'
 
 interface LoginProps {
   status?: string
@@ -22,6 +20,19 @@ export default function Login({
   canResetPassword,
   canRegister,
 }: LoginProps) {
+  const { data, setData, post, processing, errors, reset } = useForm({
+    user_name: '',
+    password: '',
+    remember: false,
+  })
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    post(appRoutes.login(), {
+      onSuccess: () => reset('password'),
+    })
+  }
+
   return (
     <AuthLayout
       title="Log in to your account"
@@ -29,89 +40,69 @@ export default function Login({
     >
       <Head title="Log in" />
 
-      <Form
-        {...login.process.form()}
-        resetOnSuccess={['password']}
-        className="flex flex-col gap-6"
-      >
-        {({ processing, errors }) => (
-          <>
-            <div className="grid gap-6">
-              {/* USERNAME */}
-              <div className="grid gap-2">
-                <Label htmlFor="user_name">Username</Label>
-                <Input
-                  id="user_name"
-                  type="text"
-                  name="user_name"
-                  required
-                  autoFocus
-                  tabIndex={1}
-                  autoComplete="username"
-                  placeholder="Username"
-                />
-                <InputError message={errors.user_name} />
-              </div>
+      <form onSubmit={submit} className="flex flex-col gap-6">
+        <div className="grid gap-6">
+          <div className="grid gap-2">
+            <Label htmlFor="user_name">Username</Label>
+            <Input
+              id="user_name"
+              value={data.user_name}
+              onChange={(e) => setData('user_name', e.target.value)}
+              required
+              autoFocus
+            />
+            <InputError message={errors.user_name} />
+          </div>
 
-              {/* PASSWORD */}
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  {canResetPassword && (
-                    <TextLink
-                      href={request()}
-                      className="ml-auto text-sm"
-                      tabIndex={5}
-                    >
-                      Forgot password?
-                    </TextLink>
-                  )}
-                </div>
-
-                <Input
-                  id="password"
-                  type="password"
-                  name="password"
-                  required
-                  tabIndex={2}
-                  autoComplete="current-password"
-                  placeholder="Password"
-                />
-                <InputError message={errors.password} />
-              </div>
-
-              {/* REMEMBER */}
-              <div className="flex items-center space-x-3">
-                <Checkbox id="remember" name="remember" tabIndex={3} />
-                <Label htmlFor="remember">Remember me</Label>
-              </div>
-
-              {/* SUBMIT */}
-              <Button
-                type="submit"
-                className="mt-4 w-full"
-                tabIndex={4}
-                disabled={processing}
-              >
-                {processing && <Spinner />}
-                Log in
-              </Button>
+          <div className="grid gap-2">
+            <div className="flex items-center">
+              <Label htmlFor="password">Password</Label>
+              {canResetPassword && (
+                <TextLink
+                  href={appRoutes.password.request()}
+                  className="ml-auto text-sm"
+                >
+                  Forgot password?
+                </TextLink>
+              )}
             </div>
 
-            {canRegister && (
-              <div className="text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{' '}
-                <TextLink href={register()} tabIndex={5}>
-                  Sign up
-                </TextLink>
-              </div>
-            )}
-          </>
+            <Input
+              id="password"
+              type="password"
+              value={data.password}
+              onChange={(e) => setData('password', e.target.value)}
+              required
+            />
+            <InputError message={errors.password} />
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <Checkbox
+              checked={data.remember}
+              onCheckedChange={(v) => setData('remember', !!v)}
+            />
+            <Label>Remember me</Label>
+          </div>
+
+          <Button type="submit" disabled={processing}>
+            {processing && <Spinner />}
+            Log in
+          </Button>
+        </div>
+
+        {canRegister && (
+          <div className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{' '}
+            <TextLink href={appRoutes.register()}>
+              Sign up
+            </TextLink>
+          </div>
         )}
-      </Form>
+      </form>
 
       {status && (
-        <div className="mb-4 text-center text-sm font-medium text-green-600">
+        <div className="text-center text-sm font-medium text-green-600">
           {status}
         </div>
       )}

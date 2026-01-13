@@ -44,9 +44,8 @@ class SalesController extends Controller
                 'filters' => $filters,
             ]);
             
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to load sales data: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            throw $e; // biar kelihatan error aslinya
         }
     }
 }

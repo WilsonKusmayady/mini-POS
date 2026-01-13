@@ -11,7 +11,7 @@ import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { type User } from '@/types';
 import { Link, router } from '@inertiajs/react';
 import { LogOut, Settings } from 'lucide-react';
-import logout from '@/routes/logout';
+import { appRoutes } from '@/lib/app-routes'
 
 interface UserMenuContentProps {
     user: User;
@@ -22,7 +22,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
 
     const handleLogout = () => {
         cleanup();
-        router.post(logout().url)
+        router.post(appRoutes.logout())
     };
 
     return (

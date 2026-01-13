@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
+import { type BreadcrumbItem } from '@/types';
+import { appRoutes } from '@/lib/app-routes';
 import AppLayout from '@/layouts/app-layout';
 import { 
     Card, 
@@ -37,6 +39,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Plus, Search, MoreHorizontal, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 
+const breadcrumbs: BreadcrumbItem[] = [
+  {
+    title: 'Dashboard',
+    href: appRoutes.dashboard(),
+  },
+  {
+    title: 'Inventory',
+    href: "/items",
+  }
+];
 // --- Tipe Data ---
 interface Item {
     item_code: string;
@@ -93,7 +105,7 @@ export default function ItemIndex({ items }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={[{ title: 'Inventory', href: '/items' }]}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Barang" />
 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">

@@ -145,10 +145,10 @@ class SalesService
             $this->saleRepository->updateSaleStatus($invoiceCode, 0);
             
             // Restore item stock
-            foreach ($sale->items as $item) {
+            foreach ($sale->sales_details as $detail) {
                 $this->itemRepository->increaseStock(
-                    $item->item_code,
-                    $item->sales_quantity
+                    $detail->item_code,
+                    $detail->sales_quantity
                 );
             }
             
@@ -320,7 +320,7 @@ class SalesService
     /**
      * Format sale response
      */
-    private function formatSaleResponse(Sale $sale): array
+    private function formatSaleResponse(Sales $sale): array
     {
         return [
             'sales_invoice_code' => $sale->sales_invoice_code,
@@ -335,15 +335,15 @@ class SalesService
             'sales_status' => $sale->sales_status,
             'user_id' => $sale->user_id,
             'created_at' => $sale->created_at->toISOString(),
-            'items' => $sale->items->map(function ($item) {
+            'items' => $sale->sales_details->map(function ($detail) {
                 return [
-                    'item_code' => $item->item_code,
-                    'item_name' => $item->item->item_name ?? 'Unknown Item',
-                    'sales_quantity' => $item->sales_quantity,
-                    'sell_price' => (float) $item->sell_price,
-                    'sales_discount_item' => (float) $item->sales_discount_item,
-                    'sales_hasil_diskon_item' => (float) $item->sales_hasil_diskon_item,
-                    'total_item_price' => (float) $item->total_item_price,
+                    'item_code' => $detail->item_code,
+                    'item_name' => $detail->item->item_name ?? 'Unknown Item',
+                    'sales_quantity' => $detail->sales_quantity,
+                    'sell_price' => (float) $detail->sell_price,
+                    'sales_discount_item' => (float) $detail->sales_discount_item,
+                    'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
+                    'total_item_price' => (float) $detail->total_item_price,
                 ];
             })->toArray(),
             'user' => $sale->user ? [
