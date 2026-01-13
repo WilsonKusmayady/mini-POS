@@ -43,7 +43,7 @@ class PurchaseController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StorePurchaseRequest $request)
     {
         $this->purchaseService->createPurchase($request->validated());
         return redirect()->route('dashboard')->with('success', 'Pembelian berhasil ditambahkan');

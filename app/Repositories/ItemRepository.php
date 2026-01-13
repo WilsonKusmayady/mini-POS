@@ -1,8 +1,9 @@
 <?php
 namespace App\Repositories;
 use App\Models\Item;
+use App\Repositories\Contracts\ItemRepositoryInterface;
 
-class ItemRepository {
+class ItemRepository implements ItemRepositoryInterface {
     public function getAll() {
         return Item::orderby('item_name', 'asc')->get();
     }

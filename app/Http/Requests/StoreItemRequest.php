@@ -25,7 +25,7 @@ class StoreItemRequest extends FormRequest
             //
             'item_name' => 'required|string|max:255',
             'item_price' => 'required|numeric|min:0',
-            // 'item_stock' => 'required|integer|min:0',
+            'item_stock' => 'required|integer|min:0',
             'item_min_stock' => 'required|integer|min:0',
             'item_description' => 'nullable|string|max:255'
         ];

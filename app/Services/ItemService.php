@@ -1,18 +1,19 @@
 <?php
 namespace App\Services;
 
-use App\Repositories\ItemRepository;
+// use App\Repositories\ItemRepository;
 use App\Services\CodeGeneratorService; 
+use App\Repositories\Contracts\ItemRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
 class ItemService {
-    protected $ItemRepository;
-    protected $CodeGeneratorServices;
+    protected $itemRepository;
+    protected $codeGeneratorService;
 
-    public function __construct(ItemRepository $itemRepository, CodeGeneratorService $codeGeneratorService) {
-        $this->ItemRepository = $itemRepository;
-        $this->CodeGeneratorService = $codeGeneratorService;
+    public function __construct(ItemRepositoryInterface $itemRepository, CodeGeneratorService $codeGeneratorService) {
+        $this->itemRepository = $itemRepository;
+        $this->codeGeneratorService = $codeGeneratorService;
     }
 
     public function getAllItems() {
@@ -25,13 +26,13 @@ class ItemService {
 
     public function createItem(array $data) {
         return DB::transaction(function () use ($data) {
-            $code = $this->codeGenerator->generateItemCode();
+            $code = $this->codeGeneratorService->generateItemCode();
 
             // MERGE DATA:
             // Kita paksa stok jadi 0, meskipun user input angka lain
             $finalData = array_merge($data, [
                 'item_code' => $code,
-                'item_stock' => 0 
+                'item_stock' => $data['item_stock'] ?? 0
             ]);
 
             return $this->itemRepository->store($finalData);

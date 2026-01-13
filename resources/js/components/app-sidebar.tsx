@@ -1,4 +1,5 @@
-import { NavFooter } from '@/components/nav-footer';
+import * as React from 'react';
+import AppLogo from '@/components/app-logo'; // [PERBAIKAN 1] Hapus kurung kurawal { }
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -6,60 +7,58 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
+    SidebarRail,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
-import AppLogo from './app-logo';
+import { usePage } from '@inertiajs/react';
+import { LayoutDashboard, Package, ShoppingCart } from 'lucide-react';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-];
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    const { auth } = usePage().props as any; 
+    const user = auth?.user;
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
+    const navMain = [
+        {
+            title: 'Dashboard',
+            href: '/', // Ganti url -> href
+            icon: LayoutDashboard,
+        },
+        {
+            title: 'Inventory',
+            href: '/items', // Ganti url -> href
+            icon: Package,
+        },
+        {
+            title: 'Purchase',
+            href: '/purchase/create', // Ganti url -> href
+            icon: ShoppingCart,
+        },
+    ];
 
-export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" {...props}>
             <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
-                                <AppLogo />
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
+                <AppLogo />
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={navMain} />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
+                {}
+                {user && (
+                    <NavUser
+                        user={{
+                            // Mapping manual karena beda struktur DB
+                            ...user, // Spread props asli
+                            name: user.user_name || user.name || 'Admin POS',
+                            email: user.email || 'staff@minipos.local', 
+                            avatar: user.profile_photo_url || '',
+                        }}
+                    />
+                )}
             </SidebarFooter>
+            <SidebarRail />
         </Sidebar>
     );
 }

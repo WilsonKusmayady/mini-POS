@@ -25,7 +25,7 @@ class ItemController extends Controller
     {
         $items = $this->itemService->getAllItems();
         // 'Items/Index' adalah file resources/js/pages/Items/Index.tsx
-        return Inertia::render('Items/Item', ['items' => $items]);
+        return Inertia::render('Items/Index', ['items' => $items]);
     }
 
     /**

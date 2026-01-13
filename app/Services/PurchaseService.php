@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
-use App\Repositories\PurchaseRepository;
-use App\Repositories\ItemRepository;
+// use App\Repositories\PurchaseRepository;
+// use App\Repositories\ItemRepository;
+use App\Repositories\Contracts\ItemRepositoryInterface;
+use App\Repositories\Contracts\PurchaseRepositoryInterface;
 use App\Services\CodeGeneratorService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -15,8 +17,8 @@ class PurchaseService
     protected $codeGeneratorService;
 
     public function __construct(
-        PurchaseRepository $purchaseRepository,
-        ItemRepository $itemRepository,
+        PurchaseRepositoryInterface $purchaseRepository,
+        ItemRepositoryInterface $itemRepository,
         CodeGeneratorService $codeGeneratorService
     ) {
         $this->purchaseRepository = $purchaseRepository;

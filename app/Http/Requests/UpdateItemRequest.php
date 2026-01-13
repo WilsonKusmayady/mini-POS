@@ -12,7 +12,7 @@ class UpdateItemRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,12 +22,14 @@ class UpdateItemRequest extends FormRequest
      */
     public function rules(): array
     {
-        $itemCode = $this->route('item');
+        $item = $this->route('item');
+        // $itemCode = $this->route('item');
+        $itemCode = is_object($item) ? $item->item_code : $item;
 
         return [
             //
             'item_name' => ['required', 'string', 'max:255', 
-            Rule::unique('items', 'item_name')->ignore($itemCode, 'itemCode')],
+            Rule::unique('items', 'item_name')->ignore($itemCode, 'item_code')],
 
             'item_price' => 'required|numeric|min:0',
             'item_stock' => 'required|integer|min:0',
