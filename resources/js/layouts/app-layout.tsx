@@ -2,7 +2,7 @@ import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
 import { type BreadcrumbItem } from '@/types';
 import { type ReactNode } from 'react';
 import { Toaster } from '@/components/ui/toaster'; 
-import { useToast } from '@/hooks/use-toast'; 
+import { useFlashToast } from '@/hooks/use-flash-toast'; 
 
 interface AppLayoutProps {
     children: ReactNode;
@@ -10,14 +10,13 @@ interface AppLayoutProps {
 }
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
-    useToast();
+    useFlashToast();
     
     return (
         <>
             <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
                 {children}
             </AppLayoutTemplate>
-            <Toaster />
         </>
     );
 };

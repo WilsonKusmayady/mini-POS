@@ -1,6 +1,6 @@
 import AuthLayoutTemplate from '@/layouts/auth/auth-simple-layout';
 import { Toaster } from '@/components/ui/toaster'; 
-import { useToast } from '@/hooks/use-toast'; 
+import { useFlashToast } from '@/hooks/use-flash-toast'; 
 
 export default function AuthLayout({
     children,
@@ -12,14 +12,13 @@ export default function AuthLayout({
     title: string;
     description: string;
 }) {
-    useToast();
+    useFlashToast();
     
     return (
         <>
             <AuthLayoutTemplate title={title} description={description} {...props}>
                 {children}
             </AuthLayoutTemplate>
-            <Toaster />
         </>
     );
 }

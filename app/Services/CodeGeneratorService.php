@@ -4,10 +4,26 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\Purchase;
-use App\Models\Sale;
+use App\Models\Sales;
+use App\Models\Member;
+
 
 class CodeGeneratorService
 {
+    public function generateMemberCode(): string
+    {
+        $prefix = 'M' . date('y') . date('m');
+
+        $latest = Member::where('member_code', 'like', $prefix . '%')
+            ->orderBy('member_code', 'desc')
+            ->first();
+
+        $number = $latest
+            ? intval(substr($latest->member_code, -4)) + 1
+            : 1;
+
+        return $prefix . str_pad($number, 4, '0', STR_PAD_LEFT);
+    }
     public function generateItemCode(): string
     {
         $latest = Item::orderBy('item_code', 'desc')->first();
@@ -24,7 +40,7 @@ class CodeGeneratorService
     {
         $prefix = 'INV-S' . date('y') . date('m');
         
-        $latest = Sale::where('sales_invoice_code', 'like', $prefix . '%')
+        $latest = Sales::where('sales_invoice_code', 'like', $prefix . '%')
             ->orderBy('sales_invoice_code', 'desc')
             ->first();
 

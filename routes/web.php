@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\SalesController;
 
 
 // Route::get('/', function () {
@@ -26,6 +27,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/', function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
+
+    Route::get('/sales', [SalesController::class, 'index'])
+        ->name('sales.index');
 
     Route::post('/logout', [UserController::class, 'logout'])
         ->name('logout');

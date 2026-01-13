@@ -18,6 +18,14 @@ export const appRoutes = {
     profile: {
         edit: () => '/profile',
     },
+
+    sales: {
+        index: () => '/sales',
+        history: () => '/sales/history',
+        create: () => '/sales/create',
+        edit: (id: number | string) => `/sales/${id}/edit`,
+        show: (id: number | string) => `/sales/${id}`,
+    },
 } as const;
 
 export type AppRoutes = typeof appRoutes;
