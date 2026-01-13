@@ -2,15 +2,17 @@
 
 namespace App\Services;
 
-use App\Repositories\UserRepository;
+use App\Repositories\Contracts\UserRepositoryInterface; 
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth; 
+use Illuminate\Validation\ValidationException; 
 use Exception;
 
 class UserService
 {
     protected $userRepo;
 
-    public function __construct(UserRepository $userRepo)
+    public function __construct(UserRepositoryInterface $userRepo)
     {
         $this->userRepo = $userRepo;
     }

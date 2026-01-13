@@ -3,6 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\UserService;
+use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
+
+
 
 class UserController extends Controller
 {
@@ -70,8 +75,44 @@ class UserController extends Controller
             $this->userService->deleteUser($id);
             return redirect()->back()->with('success', 'User berhasil dihapus.');
         } catch (Exception $e) {
-            // Tangkap error jika user coba hapus diri sendiri
             return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
+    public function showLogin()
+    {
+        return Inertia::render('auth/login');
+    }
+
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'user_name' => 'required|string',
+            'password'  => 'required|string',
+            'remember'  => 'nullable|boolean',
+        ]);
+
+        try {
+            $this->userService->attemptLogin($credentials);
+
+            return redirect()
+                ->route('dashboard')
+                ->with('success', 'Login berhasil. Selamat datang!');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        }
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/login-karyawan')->with('success', 'Logout berhasil.');;
     }
 }
