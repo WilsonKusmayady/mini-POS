@@ -2,8 +2,9 @@
 namespace App\Repositories;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
+use App\Repositories\Contracts\PurchaseRepositoryInterface;
 
-class PurchaseRepository {
+class PurchaseRepository implements PurchaseRepositoryInterface {
     public function createPurchase(array $data) {
         return Purchase::create($data);
     }

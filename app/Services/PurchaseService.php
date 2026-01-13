@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Services;
+
+// use App\Repositories\PurchaseRepository;
+// use App\Repositories\ItemRepository;
+use App\Repositories\Contracts\ItemRepositoryInterface;
+use App\Repositories\Contracts\PurchaseRepositoryInterface;
+use App\Services\CodeGeneratorService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+
+class PurchaseService
+{
+    protected $purchaseRepository;
+    protected $itemRepository;
+    protected $codeGeneratorService;
+
+    public function __construct(
+        PurchaseRepositoryInterface $purchaseRepository,
+        ItemRepositoryInterface $itemRepository,
+        CodeGeneratorService $codeGeneratorService
+    ) {
+        $this->purchaseRepository = $purchaseRepository;
+        $this->itemRepository = $itemRepository;
+        $this->codeGeneratorService = $codeGeneratorService;
+    }
+
+    public function createPurchase(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            $invoiceNumber = $this->codeGeneratorService->generatePurchaseInvoiceCode();
+
+            // 1. Hitung Total dengan Diskonf
+            $grandTotal = 0;
+            
+            // Siapkan data detail untuk disimpan nanti (agar tidak loop 2x untuk hitung total)
+            $detailsToSave = [];
+
+            foreach ($data['items'] as $item) {
+                $buyPrice = $item['buy_price'];
+                $quantity = $item['quantity'];
+                $discountPercentage = $item['discount_item'] ?? 0; // Default 0 jika kosong
+
+                // 1. Hitung Nominal Diskon per Item
+                // Rumus: Harga * (Persen / 100)
+                $discountAmountPerItem = $buyPrice * ($discountPercentage / 100);
+
+                // 2. Hitung Harga Netto per Item (Setelah Diskon)
+                $priceAfterDiscount = $buyPrice - $discountAmountPerItem;
+
+                // 3. Hitung Subtotal Baris (Netto * Jumlah)
+                $rowTotal = $priceAfterDiscount * $quantity;
+
+                $grandTotal += $rowTotal;
+
+                $detailsToSave[] = [
+                    'item_code' => $item['item_code'],
+                    'quantity' => $quantity,
+                    'buy_price' => $buyPrice,
+                    'purchase_discount_item' => $discountPercentage,
+                    'purchase_hasil_diskon_item' => $priceAfterDiscount, // Harga netto satuan
+                    'total_item_price' => $rowTotal, // Subtotal baris
+                ];
+            }
+
+            // 2. Simpan Header Purchase
+            $purchase = $this->purchaseRepository->createPurchase([
+                'purchase_invoice_number' => $invoiceNumber,
+                'supplier_id' => $data['supplier_id'],
+                'user_id' => Auth::id(),
+                'purchase_date' => $data['purchase_date'],
+                'purchase_subtotal' => $grandTotal, // Asumsi subtotal = grand total (sebelum pajak global)
+                'purchase_grand_total' => $grandTotal,
+                'purchase_status' => 'completed', 
+            ]);
+
+            // 3. Simpan Details & Update Stok
+            foreach ($detailsToSave as $detail) {
+                $this->purchaseRepository->createDetail(array_merge($detail, [
+                    'purchase_invoice_number' => $invoiceNumber,
+                ]));
+
+                // Update Stok
+                $currentItem = $this->itemRepository->findByCode($detail['item_code']);
+                if ($currentItem) {
+                    $newStock = $currentItem->item_stock + $detail['quantity'];
+                    $this->itemRepository->update($detail['item_code'], ['item_stock' => $newStock]);
+                }
+            }
+
+            return $purchase;
+        });
+    }
+}
