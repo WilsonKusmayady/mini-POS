@@ -8,5 +8,5 @@ interface ItemRepositoryInterface {
     public function update($code, array $data);
     public function destroy($code);
     public function getLatestItem();
-    public function getPaginated(int $perPage, string $search = null);
+    public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc');
 }
