@@ -95,7 +95,9 @@ class UserController extends Controller
         try {
             $this->userService->attemptLogin($credentials);
 
-            return redirect()->route('dashboard');
+            return redirect()
+                ->route('dashboard')
+                ->with('success', 'Login berhasil. Selamat datang!');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()
@@ -111,6 +113,6 @@ class UserController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login-karyawan');
+        return redirect('/login-karyawan')->with('success', 'Logout berhasil.');;
     }
 }

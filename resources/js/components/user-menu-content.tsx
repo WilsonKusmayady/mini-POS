@@ -30,9 +30,9 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
             <DropdownMenuLabel className="px-2 py-1.5 text-sm font-medium">
                 {user.name}
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-                <DropdownMenuItem asChild>
+            {/* <DropdownMenuSeparator /> */}
+            {/* <DropdownMenuGroup> */}
+                {/* <DropdownMenuItem asChild>
                     <Link
                         className="block w-full"
                         // href={edit()}
@@ -43,8 +43,8 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                         <Settings className="mr-2" />
                         Settings
                     </Link>
-                </DropdownMenuItem>
-            </DropdownMenuGroup>
+                </DropdownMenuItem> */}
+            {/* </DropdownMenuGroup> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem
                 onClick={handleLogout}
