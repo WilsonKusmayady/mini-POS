@@ -16,8 +16,6 @@ return new class extends Migration
             
             $table->date('purchase_date');
             $table->decimal('purchase_subtotal', 15, 2);
-            $table->decimal('purchase_discount_value', 15, 2)->default(0);
-            $table->decimal('purchase_hasil_discount_value', 15, 2)->default(0);
             $table->decimal('purchase_grand_total', 15, 2);
             $table->enum('purchase_status', ['paid', 'pending', 'cancelled'])->default('pending');
             $table->timestamps();
