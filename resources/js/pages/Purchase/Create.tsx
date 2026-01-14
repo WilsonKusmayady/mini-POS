@@ -10,6 +10,7 @@ import { Trash2, Plus, Save, ArrowLeft } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import { ItemCombobox, Item } from '@/components/item-combobox';
+import { MoneyInput } from '@/components/ui/money-input';
 
 // --- Tipe Data ---
 
@@ -212,12 +213,13 @@ export default function PurchaseCreate({ suppliers }: CreateProps) {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Input 
-                                                        type="number" 
-                                                        min="0"
-                                                        placeholder="0"
+                                                    <MoneyInput
+                                                        placeholder="Rp 0"
                                                         value={item.buy_price}
-                                                        onChange={(e) => updateItemRow(index, 'buy_price', parseFloat(e.target.value) || 0)}
+                                                        onValueChange={(values) => {
+                                                            // floatValue adalah nilai asli sedangkan formattedValue adalah formatted
+                                                            updateItemRow(index, 'buy_price', values.floatValue || 0);
+                                                        }}
                                                     />
                                                 </TableCell>
                                                 <TableCell>

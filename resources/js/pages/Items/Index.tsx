@@ -38,6 +38,11 @@ import { SharedData } from '@/types';
 // --- IMPORT VIEW MODAL ---
 import { ViewModal } from '@/components/ui/view-modal'; 
 
+// Money Input Formatted
+import { MoneyInput } from '@/components/ui/money-input';
+import { index } from '@/routes/items';
+import { getRandomValues } from 'crypto';
+
 // --- Interfaces ---
 
 interface Item {
@@ -421,7 +426,15 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 <div className="space-y-2"><Label>Stok Awal</Label><Input type="number" value={data.item_stock} onChange={(e) => setData('item_stock', parseInt(e.target.value))} required /></div>
                                 <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                             </div>
-                            <div className="space-y-2"><Label>Harga Jual</Label><Input type="number" value={data.item_price} onChange={(e) => setData('item_price', parseFloat(e.target.value))} required /></div>
+                            {/* <div className="space-y-2"><Label>Harga Jual</Label><Input type="number" value={data.item_price} onChange={(e) => setData('item_price', parseFloat(e.target.value))} required /></div> */}
+                            <div className="space-y-2"><Label>Harga Jual</Label>
+                                <MoneyInput
+                                    placeholder="Rp 0"
+                                    value={data.item_price}
+                                    onValueChange={(values) => setData('item_price', values.floatValue || 0)}
+                                    required
+                                />
+                            </div>
                             <DialogFooter className="mt-4"><Button type="submit" disabled={processing}>Simpan</Button></DialogFooter>
                         </form>
                     </DialogContent>
@@ -438,7 +451,14 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 <div className="space-y-2"><Label>Stok</Label><Input type="number" value={data.item_stock} readOnly className="bg-muted" /></div>
                                 <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                             </div>
-                            <div className="space-y-2"><Label>Harga Jual</Label><Input type="number" value={data.item_price} onChange={(e) => setData('item_price', parseFloat(e.target.value))} required /></div>
+                            <div className="space-y-2"><Label>Harga Jual</Label>
+                                <MoneyInput
+                                    placeholder="Rp 0"
+                                    value={data.item_price}
+                                    onValueChange={(values) => setData('item_price', values.floatValue || 0)}
+                                    required
+                                />
+                            </div>
                             <DialogFooter className="mt-4"><Button type="submit" disabled={processing}>Update</Button></DialogFooter>
                         </form>
                     </DialogContent>
