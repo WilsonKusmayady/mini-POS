@@ -21,11 +21,19 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+// --- Import Dropdown ---
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 // --- Import Alert & Icon ---
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Eye, Search, X, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, Eye, Search, X, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal } from 'lucide-react';
 import { useState, FormEventHandler, useEffect } from 'react';
 import { SharedData } from '@/types';
 
@@ -67,11 +75,13 @@ interface IndexProps {
 
 export default function ItemIndex({ items, filters }: IndexProps) {
     // --- Hooks & State ---
-    const { flash } = usePage<SharedData>().props; // Ambil Flash Message dari Server
+    const { flash } = usePage<SharedData>().props; 
 
+    // State Modals
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false); // State baru untuk Delete Dialog
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
     // --- Search & Sort State ---
@@ -128,6 +138,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         item_description: '',
     });
 
+    // --- Modal Handlers ---
     const openCreateModal = () => { reset(); setIsCreateOpen(true); };
     
     const openEditModal = (item: Item) => {
@@ -144,6 +155,12 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     
     const openDetailModal = (item: Item) => { setSelectedItem(item); setIsDetailOpen(true); };
 
+    // Handler baru untuk Delete Modal
+    const openDeleteModal = (item: Item) => { 
+        setSelectedItem(item); 
+        setIsDeleteOpen(true); 
+    };
+
     const handleCreateSubmit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('items.store'), { 
@@ -159,8 +176,11 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         });
     };
 
-    const handleDelete = (code: string) => { 
-        destroy(route('items.destroy', code));
+    const handleDelete = () => { 
+        if (!selectedItem) return;
+        destroy(route('items.destroy', selectedItem.item_code), {
+            onSuccess: () => { setIsDeleteOpen(false); setSelectedItem(null); }
+        });
     };
 
     const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
@@ -170,24 +190,19 @@ export default function ItemIndex({ items, filters }: IndexProps) {
             <Head title="Inventory Barang" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 
-                {/* --- BAGIAN ALERT NOTIFIKASI --- */}
+                {/* --- ALERT NOTIFIKASI --- */}
                 {flash.success && (
                     <Alert className="bg-green-50 border-green-200 text-green-900">
                         <CheckCircle2Icon className="h-4 w-4 text-green-600" />
                         <AlertTitle>Berhasil!</AlertTitle>
-                        <AlertDescription>
-                            {flash.success}
-                        </AlertDescription>
+                        <AlertDescription>{flash.success}</AlertDescription>
                     </Alert>
                 )}
-
                 {flash.error && (
                     <Alert variant="destructive">
                         <AlertCircleIcon className="h-4 w-4" />
                         <AlertTitle>Gagal!</AlertTitle>
-                        <AlertDescription>
-                            {flash.error}
-                        </AlertDescription>
+                        <AlertDescription>{flash.error}</AlertDescription>
                     </Alert>
                 )}
 
@@ -263,24 +278,32 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                             </TableCell>
                                             <TableCell>{item.item_stock}</TableCell>
                                             <TableCell>{formatRupiah(Number(item.item_price))}</TableCell>
-                                            <TableCell className="text-right space-x-2">
-                                                <Button variant="ghost" size="icon" onClick={() => openDetailModal(item)}><Eye className="h-4 w-4 text-blue-500" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => openEditModal(item)}><Edit className="h-4 w-4 text-orange-500" /></Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Hapus Barang?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Barang <b>{item.item_name}</b> akan dihapus permanen.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => handleDelete(item.item_code)}>Hapus</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                            <TableCell className="text-right">
+                                                {/* DROPDOWN MENU ACTION */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                        <DropdownMenuItem onClick={() => openDetailModal(item)}>
+                                                            <Eye className="mr-2 h-4 w-4" /> Detail
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => openEditModal(item)}>
+                                                            <Edit className="mr-2 h-4 w-4" /> Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem 
+                                                            onClick={() => openDeleteModal(item)}
+                                                            className="text-red-600 focus:text-red-600"
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Hapus
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -288,6 +311,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                             </TableBody>
                         </Table>
 
+                        {/* Pagination */}
                         <div className="flex items-center justify-between pt-4">
                             <div className="text-sm text-muted-foreground">{items.from} - {items.to} dari {items.total} data</div>
                             <div className="flex gap-1">
@@ -306,24 +330,83 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </CardContent>
                 </Card>
 
-                {/* MODAL DETAIL */}
+                {/* --- MODAL DETAIL (Fixed Alignment) --- */}
                 <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                    <DialogContent>
-                        <DialogHeader><DialogTitle>Detail Barang</DialogTitle></DialogHeader>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Detail Barang</DialogTitle>
+                        </DialogHeader>
                         {selectedItem && (
                             <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Kode</Label><Input value={selectedItem.item_code} readOnly className="col-span-3 bg-muted" /></div>
-                                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Nama</Label><Input value={selectedItem.item_name} readOnly className="col-span-3 bg-muted" /></div>
-                                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Deskripsi</Label><Input value={selectedItem.item_description || '-'} readOnly className="col-span-3 bg-muted" /></div>
-                                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Stok</Label><Input value={selectedItem.item_stock} readOnly className="col-span-3 bg-muted" /></div>
-                                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Harga Jual</Label><Input value={formatRupiah(Number(selectedItem.item_price))} readOnly className="col-span-3 bg-muted" /></div>
+                                {/* Kode Barang (Gunakan items-center agar sejajar tengah) */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right font-semibold text-muted-foreground">
+                                        Kode
+                                    </Label>
+                                    <div className="col-span-3 text-sm font-bold">
+                                        {selectedItem.item_code}
+                                    </div>
+                                </div>
+                                
+                                {/* Nama Barang */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right font-semibold text-muted-foreground">
+                                        Nama
+                                    </Label>
+                                    <div className="col-span-3 text-sm font-medium">
+                                        {selectedItem.item_name}
+                                    </div>
+                                </div>
+
+                                {/* Deskripsi (Khusus ini pakai items-start karena bisa panjang) */}
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label className="text-right font-semibold text-muted-foreground mt-1">
+                                        Deskripsi
+                                    </Label>
+                                    <div className="col-span-3 text-sm">
+                                        {selectedItem.item_description || '-'}
+                                    </div>
+                                </div>
+
+                                {/* Stok */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right font-semibold text-muted-foreground">
+                                        Stok
+                                    </Label>
+                                    <div className="col-span-3">
+                                        <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                            selectedItem.item_stock <= selectedItem.item_min_stock 
+                                                ? "bg-red-100 text-red-800" 
+                                                : "bg-green-100 text-green-800"
+                                        }`}>
+                                            {selectedItem.item_stock} Unit
+                                        </span>
+                                        {selectedItem.item_stock <= selectedItem.item_min_stock && (
+                                            <p className="text-[10px] text-red-500 mt-1">* Stok di bawah batas minimum ({selectedItem.item_min_stock})</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Harga Jual */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right font-semibold text-muted-foreground">
+                                        Harga Jual
+                                    </Label>
+                                    <div className="col-span-3 text-sm font-bold text-primary">
+                                        {formatRupiah(Number(selectedItem.item_price))}
+                                    </div>
+                                </div>
                             </div>
                         )}
-                        <DialogFooter><Button variant="secondary" onClick={() => setIsDetailOpen(false)}>Tutup</Button></DialogFooter>
+                        <DialogFooter>
+                            <Button variant="secondary" onClick={() => setIsDetailOpen(false)}>
+                                Tutup
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
-                {/* MODAL CREATE */}
+                {/* --- MODAL CREATE --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Tambah Barang</DialogTitle></DialogHeader>
@@ -340,7 +423,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* MODAL EDIT */}
+                {/* --- MODAL EDIT --- */}
                 <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Edit Barang</DialogTitle></DialogHeader>
@@ -356,6 +439,24 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                {/* --- MODAL DELETE (Moved Outside Table) --- */}
+                <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Hapus Barang?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Barang <b>{selectedItem?.item_name}</b> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
+                                Hapus
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
             </div>
         </AppLayout>
