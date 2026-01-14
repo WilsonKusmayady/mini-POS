@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Eye, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+
 interface ViewModalProps {
     // Content props
     title: string;
@@ -28,7 +29,7 @@ interface ViewModalProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-    showCloseButton?: boolean;
+    // showCloseButton?: boolean;
 }
 
 export function ViewModal({
@@ -43,7 +44,6 @@ export function ViewModal({
     open,
     onOpenChange,
     size = 'md',
-    showCloseButton = true,
 }: ViewModalProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     
@@ -84,28 +84,14 @@ export function ViewModal({
                 "max-h-[90vh] overflow-y-auto"
             )}>
                 <DialogHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <DialogTitle className="text-xl font-bold">
-                                {title}
-                            </DialogTitle>
-                            {description && (
-                                <DialogDescription className="mt-1">
-                                    {description}
-                                </DialogDescription>
-                            )}
-                        </div>
-                        {showCloseButton && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenChange(false)}
-                                className="h-8 w-8"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        )}
-                    </div>
+                    <DialogTitle className="text-xl font-bold">
+                        {title}
+                    </DialogTitle>
+                    {description && (
+                        <DialogDescription className="mt-1">
+                            {description}
+                        </DialogDescription>
+                    )}
                 </DialogHeader>
                 
                 <div className="mt-4">

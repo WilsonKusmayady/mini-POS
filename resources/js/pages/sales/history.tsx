@@ -3,48 +3,16 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { 
-  Plus, 
-  Download, 
-  Filter, 
-  Eye, 
-  MoreVertical,
-  Search,
-  Calendar,
-  ChevronDown
-} from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Plus, Download, Filter, Eye, MoreVertical,Search,Calendar,ChevronDown} from 'lucide-react';
+import {Card,CardContent,CardDescription,CardHeader,CardTitle} from '@/components/ui/card';
+import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from '@/components/ui/select';
+import { salesViewSchema } from '@/view-schemas/sales.schema';
+import { renderViewSchema } from '@/hooks/use-view-schema';
+import { useViewModal } from '@/components/ui/view-modal';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -86,6 +54,16 @@ interface SalesHistoryProps {
 }
 
 export default function SalesHistory({ sales = [] }: SalesHistoryProps) {
+  const { openModal, Modal } = useViewModal();
+
+  
+  const viewSale = (sale: Sale) => {
+    openModal(
+      salesViewSchema.title(sale),
+      renderViewSchema(salesViewSchema, sale),
+      salesViewSchema.description?.(sale)
+    );
+  };
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -366,11 +344,9 @@ export default function SalesHistory({ sales = [] }: SalesHistoryProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={appRoutes.sales.show(sale.sales_invoice_code)} className="cursor-pointer">
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Detail
-                                </Link>
+                              <DropdownMenuItem onClick={() => viewSale(sale)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Detail
                               </DropdownMenuItem>
                               {sale.sales_status === 1 && (
                                 <>
@@ -483,6 +459,7 @@ export default function SalesHistory({ sales = [] }: SalesHistoryProps) {
           </Card>
         </div>
       </div>
+      <Modal />
     </AppLayout>
   );
 }

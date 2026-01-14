@@ -14,7 +14,9 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useViewData } from '@/hooks/use-view-data';
+import { memberViewSchema } from '@/view-schemas/member.schema';
+import { renderViewSchema } from '@/hooks/use-view-schema';
+import { useViewModal } from '@/components/ui/view-modal';
 
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -61,6 +63,7 @@ interface PaginationData {
     total: number;
 }
 
+
 export default function MembersIndex() {
     const [members, setMembers] = useState<Member[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);
@@ -70,7 +73,8 @@ export default function MembersIndex() {
     const [perPage, setPerPage] = useState<string>('10');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const { viewMember, Modal } = useViewData();
+    const { openModal, Modal } = useViewModal();
+
 
     // Debounce search input
     useEffect(() => {
@@ -122,6 +126,7 @@ export default function MembersIndex() {
     useEffect(() => {
         fetchMembers();
     }, [currentPage, perPage, debouncedSearch, genderFilter]);
+
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('id-ID', {
@@ -273,6 +278,14 @@ export default function MembersIndex() {
         return buttons;
     };
 
+    const viewMember = (member: Member) => {
+        openModal(
+        memberViewSchema.title(member),
+        renderViewSchema(memberViewSchema, member),
+        memberViewSchema.description?.(member)
+        );
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Membership" />
@@ -304,11 +317,11 @@ export default function MembersIndex() {
                 {/* Filters */}
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="grid gap-4 md:grid-cols-4">
+                        <div className="grid gap-4 md:grid-cols-3">
                             <div className="relative md:col-span-2">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Cari nama member, kode, atau nomor telepon..."
+                                    placeholder="Cari nama member atau kode member..."
                                     className="pl-9"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -323,18 +336,6 @@ export default function MembersIndex() {
                                     <SelectItem value="all">Semua Gender</SelectItem>
                                     <SelectItem value="1">Laki-laki</SelectItem>
                                     <SelectItem value="0">Perempuan</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            
-                            <Select value={perPage} onValueChange={setPerPage}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Items per page" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="10">10 per halaman</SelectItem>
-                                    <SelectItem value="25">25 per halaman</SelectItem>
-                                    <SelectItem value="50">50 per halaman</SelectItem>
-                                    <SelectItem value="100">100 per halaman</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -440,6 +441,22 @@ export default function MembersIndex() {
                                     )}
                                 </CardDescription>
                             </div>
+                            
+                            {/* Pindahkan dropdown per page ke sini */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Show:</span>
+                                <Select value={perPage} onValueChange={setPerPage}>
+                                    <SelectTrigger className="w-[100px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                        <SelectItem value="100">100</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -449,8 +466,6 @@ export default function MembersIndex() {
                                     <TableRow>
                                         <TableHead className="w-[120px]">Kode Member</TableHead>
                                         <TableHead>Nama Lengkap</TableHead>
-                                        <TableHead>No. Telepon</TableHead>
-                                        <TableHead>Alamat</TableHead>
                                         <TableHead>Gender</TableHead>
                                         <TableHead>Tanggal Lahir</TableHead>
                                         <TableHead>Usia</TableHead>
@@ -459,13 +474,11 @@ export default function MembersIndex() {
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
-                                        // Loading skeleton
+                                        // Loading skeleton - dengan kolom baru
                                         Array.from({ length: parseInt(perPage) }).map((_, index) => (
                                             <TableRow key={index}>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                                                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -474,7 +487,8 @@ export default function MembersIndex() {
                                         ))
                                     ) : members.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                            {/* Update colSpan */}
+                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                 {debouncedSearch ? 'Tidak ada member yang sesuai dengan pencarian' : 'Belum ada data member'}
                                             </TableCell>
                                         </TableRow>
@@ -490,20 +504,6 @@ export default function MembersIndex() {
                                                             <User className="h-4 w-4 text-primary" />
                                                         </div>
                                                         <span className="font-medium">{member.member_name}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                                                        <span>{member.phone_number}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="max-w-[200px]">
-                                                    <div className="flex items-start gap-2">
-                                                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                                        <span className="truncate" title={member.address}>
-                                                            {member.address}
-                                                        </span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -530,14 +530,16 @@ export default function MembersIndex() {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                            <DropdownMenuItem asChild>
-                                                                <Link 
-                                                                    onClick={() => viewMember(member)}
-                                                                    className="cursor-pointer"
-                                                                >
-                                                                    <User className="mr-2 h-4 w-4" />
-                                                                    Detail
-                                                                </Link>
+                                                            <DropdownMenuItem 
+                                                                className="cursor-pointer"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    viewMember(member);
+                                                                }}
+                                                            >
+                                                                <User className="mr-2 h-4 w-4" />
+                                                                Detail
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem asChild>
                                                                 <Link 
@@ -580,6 +582,7 @@ export default function MembersIndex() {
                     </CardContent>
                 </Card>
             </div>
+            <Modal />
         </AppLayout>
     );
 }
