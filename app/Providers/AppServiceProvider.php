@@ -13,7 +13,7 @@ use App\Repositories\Contracts\PurchaseRepositoryInterface;
 use App\Repositories\PurchaseRepository;
 use App\Repositories\Contracts\SaleRepositoryInterface;
 use App\Repositories\SaleRepository;
-use App\Repositories\SupplierRepositoryInterface;
+use App\Repositories\Contracts\SupplierRepositoryInterface;
 use App\Repositories\SupplierRepository;
 
 class AppServiceProvider extends ServiceProvider

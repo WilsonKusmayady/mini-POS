@@ -22,4 +22,8 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         return Purchase::with(['details.item', 'user', 'supplier'])
         ->where('purchase_invoice_number', $invoiceNumber)->first();
     }
+
+    public function getAllPurchasesPaginated($perPage = 10) {
+        return Purchase::with(['supplier', 'user'])->orderBy('purchase_invoice_number', 'asc')->paginate($perPage);
+    }
 }

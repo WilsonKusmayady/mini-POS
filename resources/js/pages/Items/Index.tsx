@@ -22,7 +22,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-// --- Import Dropdown ---
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,11 +30,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// --- Import Alert & Icon ---
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, Trash2, Edit, Eye, Search, X, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal } from 'lucide-react';
 import { useState, FormEventHandler, useEffect } from 'react';
 import { SharedData } from '@/types';
+
+// --- IMPORT VIEW MODAL ---
+import { ViewModal } from '@/components/ui/view-modal'; 
 
 // --- Interfaces ---
 
@@ -74,14 +75,16 @@ interface IndexProps {
 }
 
 export default function ItemIndex({ items, filters }: IndexProps) {
-    // --- Hooks & State ---
     const { flash } = usePage<SharedData>().props; 
 
     // State Modals
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    
+    // ViewModal State
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false); // State baru untuk Delete Dialog
+    
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
     // --- Search & Sort State ---
@@ -153,9 +156,12 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         setIsEditOpen(true);
     };
     
-    const openDetailModal = (item: Item) => { setSelectedItem(item); setIsDetailOpen(true); };
+    // Logic: Set item lalu buka ViewModal
+    const openDetailModal = (item: Item) => { 
+        setSelectedItem(item); 
+        setIsDetailOpen(true); 
+    };
 
-    // Handler baru untuk Delete Modal
     const openDeleteModal = (item: Item) => { 
         setSelectedItem(item); 
         setIsDeleteOpen(true); 
@@ -279,7 +285,6 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                             <TableCell>{item.item_stock}</TableCell>
                                             <TableCell>{formatRupiah(Number(item.item_price))}</TableCell>
                                             <TableCell className="text-right">
-                                                {/* DROPDOWN MENU ACTION */}
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" className="h-8 w-8 p-0">
@@ -330,83 +335,82 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </CardContent>
                 </Card>
 
-                {/* --- MODAL DETAIL (Fixed Alignment) --- */}
-                <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Detail Barang</DialogTitle>
-                        </DialogHeader>
-                        {selectedItem && (
-                            <div className="grid gap-4 py-4">
-                                {/* Kode Barang (Gunakan items-center agar sejajar tengah) */}
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right font-semibold text-muted-foreground">
-                                        Kode
-                                    </Label>
-                                    <div className="col-span-3 text-sm font-bold">
-                                        {selectedItem.item_code}
-                                    </div>
-                                </div>
-                                
-                                {/* Nama Barang */}
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right font-semibold text-muted-foreground">
-                                        Nama
-                                    </Label>
-                                    <div className="col-span-3 text-sm font-medium">
-                                        {selectedItem.item_name}
-                                    </div>
-                                </div>
-
-                                {/* Deskripsi (Khusus ini pakai items-start karena bisa panjang) */}
-                                <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label className="text-right font-semibold text-muted-foreground mt-1">
-                                        Deskripsi
-                                    </Label>
-                                    <div className="col-span-3 text-sm">
-                                        {selectedItem.item_description || '-'}
-                                    </div>
-                                </div>
-
-                                {/* Stok */}
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right font-semibold text-muted-foreground">
-                                        Stok
-                                    </Label>
-                                    <div className="col-span-3">
-                                        <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                            selectedItem.item_stock <= selectedItem.item_min_stock 
-                                                ? "bg-red-100 text-red-800" 
-                                                : "bg-green-100 text-green-800"
-                                        }`}>
-                                            {selectedItem.item_stock} Unit
-                                        </span>
-                                        {selectedItem.item_stock <= selectedItem.item_min_stock && (
-                                            <p className="text-[10px] text-red-500 mt-1">* Stok di bawah batas minimum ({selectedItem.item_min_stock})</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Harga Jual */}
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right font-semibold text-muted-foreground">
-                                        Harga Jual
-                                    </Label>
-                                    <div className="col-span-3 text-sm font-bold text-primary">
-                                        {formatRupiah(Number(selectedItem.item_price))}
-                                    </div>
+                {/* --- PENGGUNAAN VIEW MODAL UNTUK DETAIL BARANG --- */}
+                <ViewModal
+                    title="Detail Barang"
+                    description={selectedItem ? `Kode: ${selectedItem.item_code}` : 'Informasi detail barang'}
+                    open={isDetailOpen}
+                    onOpenChange={setIsDetailOpen}
+                    triggerText="" // Trigger manual via state
+                    size="md"
+                >
+                    {selectedItem ? (
+                         <div className="grid gap-4 py-0">
+                            {/* Kode Barang */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right font-semibold text-muted-foreground">
+                                    Kode
+                                </Label>
+                                <div className="col-span-3 text-sm font-bold">
+                                    {selectedItem.item_code}
                                 </div>
                             </div>
-                        )}
-                        <DialogFooter>
-                            <Button variant="secondary" onClick={() => setIsDetailOpen(false)}>
-                                Tutup
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                            
+                            {/* Nama Barang */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right font-semibold text-muted-foreground">
+                                    Nama
+                                </Label>
+                                <div className="col-span-3 text-sm font-medium">
+                                    {selectedItem.item_name}
+                                </div>
+                            </div>
 
-                {/* --- MODAL CREATE --- */}
+                            {/* Deskripsi */}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right font-semibold text-muted-foreground mt-1">
+                                    Deskripsi
+                                </Label>
+                                <div className="col-span-3 text-sm">
+                                    {selectedItem.item_description || '-'}
+                                </div>
+                            </div>
+
+                            {/* Stok */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right font-semibold text-muted-foreground">
+                                    Stok
+                                </Label>
+                                <div className="col-span-3">
+                                    <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                        selectedItem.item_stock <= selectedItem.item_min_stock 
+                                            ? "bg-red-100 text-red-800" 
+                                            : "bg-green-100 text-green-800"
+                                    }`}>
+                                        {selectedItem.item_stock} Unit
+                                    </span>
+                                    {selectedItem.item_stock <= selectedItem.item_min_stock && (
+                                        <p className="text-[10px] text-red-500 mt-1">* Stok di bawah batas minimum ({selectedItem.item_min_stock})</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Harga Jual */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right font-semibold text-muted-foreground">
+                                    Harga Jual
+                                </Label>
+                                <div className="col-span-3 text-sm font-bold text-primary">
+                                    {formatRupiah(Number(selectedItem.item_price))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center text-muted-foreground">Tidak ada data dipilih</div>
+                    )}
+                </ViewModal>
+
+                {/* --- MODAL CREATE (Tetap menggunakan Dialog Standar) --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Tambah Barang</DialogTitle></DialogHeader>
@@ -423,7 +427,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT --- */}
+                {/* --- MODAL EDIT (Tetap menggunakan Dialog Standar) --- */}
                 <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Edit Barang</DialogTitle></DialogHeader>
@@ -440,7 +444,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL DELETE (Moved Outside Table) --- */}
+                {/* --- MODAL DELETE --- */}
                 <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                     <AlertDialogContent>
                         <AlertDialogHeader>

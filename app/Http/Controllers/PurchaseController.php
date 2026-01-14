@@ -27,6 +27,10 @@ class PurchaseController extends Controller
     public function index()
     {
         //
+        $purchases = $this->purchaseService->getPurchaseHistory();
+        return Inertia::render('Purchase/Index', [
+            'purchases' => $purchases
+        ]);
     }
 
     /**
@@ -46,7 +50,7 @@ class PurchaseController extends Controller
     public function store(StorePurchaseRequest $request)
     {
         $this->purchaseService->createPurchase($request->validated());
-        return redirect()->route('dashboard')->with('success', 'Pembelian berhasil ditambahkan');
+        return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil ditambahkan');
     }
 
     /**
@@ -55,6 +59,15 @@ class PurchaseController extends Controller
     public function show(string $id)
     {
         //
+        $purchase = $this->purchaseService->getPurchaseByInvoice($id);
+
+        if (!$purchase) {
+            return redirect()->route('purchases.index')->with('error', 'Pembelian tidak ditemukan');
+        } 
+
+        return Inertia::render('Purchase/Show', [
+            'purchase' => $purchase
+        ]);
     }
 
     /**

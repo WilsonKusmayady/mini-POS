@@ -45,7 +45,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('items', ItemController::class);
 
     // 4. Purchase (Transaksi Pembelian)
-    Route::get('/purchase/create', [PurchaseController::class, 'create'])->name('purchase.create');
+    Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
+    Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
     Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
-
+    Route::get('/purchases/{id}', [PurchaseController::class, 'show'])->name('purchases.show');
 });

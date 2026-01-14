@@ -29,7 +29,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
         {
             title: 'Purchase',
-            href: '/purchase/create', // Ganti url -> href
+            href: '/purchases', // Ganti url -> href
             icon: ShoppingCart,
         },
     ];

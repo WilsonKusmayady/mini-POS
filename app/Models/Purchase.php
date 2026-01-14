@@ -22,7 +22,7 @@ class Purchase extends Model
         'purchase_status' => 'string',
     ];
 
-    public function purchase_detail()
+    public function details()
     {
         return $this->hasMany(PurchaseDetail::class, 'purchase_invoice_number', 'purchase_invoice_number');
     }
