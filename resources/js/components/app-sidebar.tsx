@@ -58,8 +58,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             icon: FileText,
             items: [
                 {
-                    title: 'Pembelian',
-                    href: '/purchase/create',
+                    title: 'Purchase',
+                    href: '/purchases',
                     icon: ShoppingCart,
                 },
                 {

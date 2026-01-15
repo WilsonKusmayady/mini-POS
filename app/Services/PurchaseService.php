@@ -26,6 +26,14 @@ class PurchaseService
         $this->codeGeneratorService = $codeGeneratorService;
     }
 
+    public function getPurchaseHistory() {
+        return $this->purchaseRepository->getAllPurchasesPaginated(10);
+    }
+
+    public function getPurchaseByInvoice($invoiceNumber) {
+        return $this->purchaseRepository->getPurchaseWithDetails($invoiceNumber);
+    }
+
     public function createPurchase(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -72,7 +80,7 @@ class PurchaseService
                 'purchase_date' => $data['purchase_date'],
                 'purchase_subtotal' => $grandTotal, // Asumsi subtotal = grand total (sebelum pajak global)
                 'purchase_grand_total' => $grandTotal,
-                'purchase_status' => 'completed', 
+                'purchase_status' => 'paid', 
             ]);
 
             // 3. Simpan Details & Update Stok

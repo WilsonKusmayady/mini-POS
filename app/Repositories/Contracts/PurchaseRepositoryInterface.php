@@ -6,4 +6,5 @@ interface PurchaseRepositoryInterface {
     public function createDetail(array $data);
     public function getLatestByPrefix($prefix);
     public function getPurchaseWithDetails($invoiceNumber);
+    public function getAllPurchasesPaginated($perPage = 10);
 }

@@ -21,11 +21,24 @@ class ItemController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $items = $this->itemService->getAllItems();
-        // 'Items/Index' adalah file resources/js/pages/Items/Index.tsx
-        return Inertia::render('Items/Index', ['items' => $items]);
+        $search = $request->input('search');
+        $sortBy = $request->input('sort_by', 'item_name'); 
+        $sortDirection = $request->input('sort_direction', 'asc'); 
+
+        $items = $this->itemService->getItemsPaginated(10, $search, $sortBy, $sortDirection);
+        
+        $items->appends($request->query());
+
+        return Inertia::render('Items/Index', [
+            'items' => $items,
+            'filters' => [
+                'search' => $search,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection
+            ]
+        ]);
     }
 
     /**
@@ -77,5 +90,11 @@ class ItemController extends Controller
     {
         $this->itemService->deleteItem($itemCode);
         return redirect()->back()->with('success', 'Barang berhasil dihapus');
+    }
+
+    public function search(Request $request) {
+        $search = $request->input('q');
+        $items = $this->itemService->getItemsForDropdown($request->page, $search);
+        return response()->json($items);
     }
 }

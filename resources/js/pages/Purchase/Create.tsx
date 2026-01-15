@@ -1,23 +1,22 @@
 import AppLayout from '@/layouts/app-layout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Save } from 'lucide-react';
+import { Trash2, Plus, Save, ArrowLeft } from 'lucide-react';
 import { FormEventHandler } from 'react';
+
+import { ItemCombobox, Item } from '@/components/item-combobox';
+import { MoneyInput } from '@/components/ui/money-input';
+
+// --- Tipe Data ---
 
 interface Supplier {
     supplier_id: number;
     supplier_name: string;
-}
-
-interface Item {
-    item_code: string;
-    item_name: string;
-    item_stock: number;
 }
 
 interface PurchaseItem {
@@ -25,22 +24,22 @@ interface PurchaseItem {
     item_name: string;
     buy_price: number;
     quantity: number;
-    discount_item: number; // [Baru] Field untuk diskon persen
+    discount_item: number;
 }
 
 interface CreateProps {
     suppliers: Supplier[];
-    items: Item[];
 }
 
-export default function PurchaseCreate({ suppliers, items }: CreateProps) {
+// --- Main Component ---
+
+export default function PurchaseCreate({ suppliers }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         supplier_id: '',
         purchase_date: new Date().toISOString().split('T')[0],
         items: [] as PurchaseItem[],
     });
 
-    // Helper: Tambah Baris
     const addItemRow = () => {
         setData('items', [
             ...data.items,
@@ -49,7 +48,7 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                 item_name: '', 
                 buy_price: 0, 
                 quantity: 1, 
-                discount_item: 0 // Default diskon 0%
+                discount_item: 0 
             }
         ]);
     };
@@ -61,22 +60,27 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
         setData('items', newItems);
     };
 
-    // Helper: Update Data Row
+    // Helper: Update Data Row (General - untuk Input biasa)
     const updateItemRow = (index: number, field: keyof PurchaseItem, value: any) => {
         const newItems = [...data.items];
         newItems[index] = { ...newItems[index], [field]: value };
-
-        // Auto-fill nama barang saat item dipilih
-        if (field === 'item_code') {
-            const selectedItem = items.find(i => i.item_code === value);
-            if (selectedItem) {
-                newItems[index].item_name = selectedItem.item_name;
-            }
-        }
         setData('items', newItems);
     };
 
-    // Kalkulasi Grand Total (Memperhitungkan Diskon)
+    // Helper: Callback saat Item dipilih dari Combobox
+    const handleItemSelect = (index: number, item: Item) => {
+        const newItems = [...data.items];
+        newItems[index] = {
+            ...newItems[index],
+            item_code: item.item_code,
+            item_name: item.item_name,
+            // Jika Anda ingin otomatis mengisi harga beli terakhir (jika ada di DB), bisa set di sini
+            // buy_price: item.last_buy_price || 0 
+        };
+        setData('items', newItems);
+    };
+
+    // Kalkulasi Grand Total
     const grandTotal = data.items.reduce((acc, item) => {
         const priceAfterDiscount = item.buy_price - (item.buy_price * (item.discount_item / 100));
         return acc + (priceAfterDiscount * item.quantity);
@@ -87,15 +91,38 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
         post(route('purchases.store'));
     };
 
+    // Breadcrumbs navigasi
+    const breadcrumbs = [
+        { title: 'Dashboard', href: route('dashboard') },
+        { title: 'Pembelian', href: route('purchases.index') },
+        { title: 'Buat Transaksi', href: '#' }
+    ];
+
     return (
-        <AppLayout breadcrumbs={[{ title: 'Transaksi Pembelian', href: '#' }]}>
-            <Head title="Transaksi Pembelian" />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Buat Transaksi Pembelian" />
             
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
+                
+                {/* Header dengan Tombol Kembali */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Link href={route('purchases.index')}>
+                            <Button variant="ghost" size="icon">
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                        </Link>
+                        <div>
+                            <h2 className="text-xl font-bold tracking-tight">Transaksi Baru</h2>
+                            <p className="text-sm text-muted-foreground">Input data pembelian barang masuk.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                     
-                    {/* Header: Supplier & Info */}
                     <div className="grid gap-4 md:grid-cols-2">
+                        {/* Card Informasi Supplier & Tanggal */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Informasi Supplier</CardTitle>
@@ -132,7 +159,7 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                             </CardContent>
                         </Card>
 
-                        {/* Summary Card */}
+                        {/* Card Summary Total */}
                         <Card className="flex flex-col justify-center items-center bg-muted/50">
                             <CardContent className="text-center pt-6">
                                 <h3 className="text-lg font-medium text-muted-foreground">Total Transaksi</h3>
@@ -143,7 +170,7 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                         </Card>
                     </div>
 
-                    {/* Table Items */}
+                    {/* Card Tabel Input Barang */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Daftar Barang</CardTitle>
@@ -172,36 +199,27 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                                         </TableRow>
                                     )}
                                     {data.items.map((item, index) => {
-                                        // Hitung subtotal per baris untuk ditampilkan
                                         const priceAfterDiscount = item.buy_price - (item.buy_price * (item.discount_item / 100));
                                         const rowSubtotal = priceAfterDiscount * item.quantity;
 
                                         return (
                                             <TableRow key={index}>
                                                 <TableCell>
-                                                    <Select 
+                                                    {/* PENGGUNAAN KOMPONEN BARU */}
+                                                    <ItemCombobox 
                                                         value={item.item_code}
-                                                        onValueChange={(val) => updateItemRow(index, 'item_code', val)}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Pilih Item" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {items.map((i) => (
-                                                                <SelectItem key={i.item_code} value={i.item_code}>
-                                                                    {i.item_name} (Stok: {i.item_stock})
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        onSelect={(selectedItem) => handleItemSelect(index, selectedItem)}
+                                                        placeholder="Cari Barang..."
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Input 
-                                                        type="number" 
-                                                        min="0"
-                                                        placeholder="0"
+                                                    <MoneyInput
+                                                        placeholder="Rp 0"
                                                         value={item.buy_price}
-                                                        onChange={(e) => updateItemRow(index, 'buy_price', parseFloat(e.target.value) || 0)}
+                                                        onValueChange={(values) => {
+                                                            // floatValue adalah nilai asli sedangkan formattedValue adalah formatted
+                                                            updateItemRow(index, 'buy_price', values.floatValue || 0);
+                                                        }}
                                                     />
                                                 </TableCell>
                                                 <TableCell>
@@ -213,7 +231,6 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {/* Input Diskon */}
                                                     <Input 
                                                         type="number" 
                                                         min="0"
@@ -245,7 +262,13 @@ export default function PurchaseCreate({ suppliers, items }: CreateProps) {
                         </CardContent>
                     </Card>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        <Link href={route('purchases.index')}>
+                            <Button type="button" variant="outline" size="lg">
+                                Batal
+                            </Button>
+                        </Link>
+
                         <Button type="submit" size="lg" disabled={processing || data.items.length === 0}>
                             <Save className="w-4 h-4 mr-2" />
                             Simpan Transaksi

@@ -87,7 +87,7 @@ export function ViewModal({
                         {title}
                     </DialogTitle>
                     {description && (
-                        <DialogDescription className="mt-1">
+                        <DialogDescription className="mt-4">
                             {description}
                         </DialogDescription>
                     )}
@@ -113,7 +113,6 @@ export function useViewModal() {
         content: null,
     });
 
-    // PERBAIKAN DI SINI: Fungsi openModal sekarang menerima 3 parameter
     const openModal = (title: string, content: React.ReactNode, description?: string) => {
         setModalContent({ title, content, description });
         setIsOpen(true);

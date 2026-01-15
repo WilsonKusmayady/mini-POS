@@ -17,6 +17,12 @@ use App\Http\Controllers\MemberController;
 // Route::get('/login-karyawan', function () {
 //     return Inertia::render('auth/login'); 
 // })->name('login.temp');
+
+/*
+|--------------------------------------------------------------------------
+| GUEST ROUTES 
+|--------------------------------------------------------------------------
+*/
 Route::middleware('guest')->group(function () {
     Route::get('/login-karyawan', [UserController::class, 'showLogin'])
         ->name('login');
@@ -58,10 +64,24 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
     });
 
-    
+     Route::get('/items/search', [ItemController::class, 'search'])
+        ->name('items.search');
+
+    // 3. Inventory (Items) - Resource Route (CRUD Lengkap)
+    Route::resource('items', ItemController::class);
+
+    // 4. Purchase (Transaksi Pembelian)
+    Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
+    Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
+    Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+    Route::get('/purchases/{id}', [PurchaseController::class, 'show'])->name('purchases.show');
 });
 // Route::middleware(['auth', 'verified'])->group(function () {
 //     Route::get('dashboard', function () {
 //         return Inertia::render('dashboard');
 //     })->name('dashboard');
 // });
+
+    // --- ROUTE API SEARCH ---
+
+

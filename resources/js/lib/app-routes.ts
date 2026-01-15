@@ -28,6 +28,7 @@ export const appRoutes = {
         api: {
             list: () => '/api/sales',
         },
+
     },
 
     members: {
