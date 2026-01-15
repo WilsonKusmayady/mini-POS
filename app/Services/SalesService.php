@@ -34,11 +34,10 @@ class SalesService
     /**
      * Get sales with pagination
      */
-    public function getAllSalesPaginated(array $filters = [], int $perPage = 15)
+    public function getAllSalesPaginated(array $filters = [], int $perPage = 10, int $page = 1)
     {
         $validatedFilters = $this->validateFilters($filters);
-        
-        return $this->saleRepository->getAllSalesPaginated($perPage, $validatedFilters);
+        return $this->saleRepository->getAllSalesPaginated($perPage, $validatedFilters, $page);
     }
 
     /**
@@ -307,11 +306,19 @@ class SalesService
         }
         
         if (!empty($filters['start_date'])) {
-            $validated['start_date'] = Carbon::parse($filters['start_date'])->toDateString();
+            try {
+                $validated['start_date'] = Carbon::parse($filters['start_date'])->toDateString();
+            } catch (\Exception $e) {
+                // Tanggal tidak valid, abaikan
+            }
         }
         
         if (!empty($filters['end_date'])) {
-            $validated['end_date'] = Carbon::parse($filters['end_date'])->toDateString();
+            try {
+                $validated['end_date'] = Carbon::parse($filters['end_date'])->toDateString();
+            } catch (\Exception $e) {
+                // Tanggal tidak valid, abaikan
+            }
         }
         
         return $validated;

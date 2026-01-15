@@ -33,6 +33,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/sales', [SalesController::class, 'index'])
         ->name('sales.index');
+    Route::get('/sales/create', function () {
+        return Inertia::render('sales/create');
+    })->name('sales.create');
 
     Route::post('/logout', [UserController::class, 'logout'])
         ->name('logout');
@@ -51,7 +54,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('api')->group(function () {
         Route::get('/members', [MemberController::class, 'apiIndex'])->name('members.api.index');
         Route::delete('/members/{memberCode}', [MemberController::class, 'destroy'])->name('members.api.destroy');
+        Route::get('/members/statistics', [MemberController::class, 'getStatistics'])->name('members.api.statistics');    
+        Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
     });
+
+    
 });
 // Route::middleware(['auth', 'verified'])->group(function () {
 //     Route::get('dashboard', function () {

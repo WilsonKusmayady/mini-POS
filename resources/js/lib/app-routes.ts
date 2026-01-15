@@ -25,6 +25,9 @@ export const appRoutes = {
         create: () => '/sales/create',
         edit: (id: number | string) => `/sales/${id}/edit`,
         show: (id: number | string) => `/sales/${id}`,
+        api: {
+            list: () => '/api/sales',
+        },
     },
 
     members: {
@@ -35,6 +38,7 @@ export const appRoutes = {
         api: {
             list: () => '/api/members', 
             destroy: (id: string) => `/api/members/${id}`,
+            statistics: () => '/api/members/statistics',
         },
     },
 } as const;

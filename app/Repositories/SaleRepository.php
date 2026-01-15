@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class SaleRepository implements SaleRepositoryInterface
 {
-    public function getAllSalesPaginated(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function getAllSalesPaginated(int $perPage = 10, array $filters = [], int $page = 1): LengthAwarePaginator
     {
         $query = Sales::with(['sales_details.item', 'user'])
             ->orderBy('created_at', 'desc');
@@ -40,7 +40,7 @@ class SaleRepository implements SaleRepositoryInterface
             $query->whereDate('sales_date', '<=', $filters['end_date']);
         }
 
-        return $query->paginate($perPage);
+        return $query->paginate($perPage, ['*'], 'page', $page);
     }
 
     public function getSalesHistory(array $filters = [], int $limit = 50): array

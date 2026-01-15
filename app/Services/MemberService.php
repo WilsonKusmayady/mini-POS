@@ -148,6 +148,22 @@ class MemberService
         if (isset($filters['gender']) && $filters['gender'] !== '') {
             $validated['gender'] = (bool) $filters['gender'];
         }
+
+        if (!empty($filters['start_date'])) {
+        try {
+                $validated['start_date'] = Carbon::parse($filters['start_date'])->toDateString();
+            } catch (\Exception $e) {
+                // Tanggal tidak valid, abaikan
+            }
+        }
+        
+        if (!empty($filters['end_date'])) {
+            try {
+                $validated['end_date'] = Carbon::parse($filters['end_date'])->toDateString();
+            } catch (\Exception $e) {
+                // Tanggal tidak valid, abaikan
+            }
+        }
         
         return $validated;
     }

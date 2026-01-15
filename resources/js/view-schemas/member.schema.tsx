@@ -45,8 +45,8 @@ export const memberViewSchema: ViewSchema = {
           key: 'gender',
           type: 'boolean-label',
           options: {
-            trueLabel: 'Laki-laki',
-            falseLabel: 'Perempuan',
+            trueLabel: 'Pria',
+            falseLabel: 'Wanita',
           },
         },
         {

@@ -3,7 +3,7 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical,ChevronLeft,ChevronRight,} from 'lucide-react';
+import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical,ChevronLeft,ChevronRight, X } from 'lucide-react';
 import {Card,CardContent,CardDescription,CardHeader,CardTitle,} from '@/components/ui/card';
 import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow,} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { memberViewSchema } from '@/view-schemas/member.schema';
 import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
-
+import { FilterModal, useFilterModal, type FilterParams } from '@/components/ui/filter-modal';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -73,20 +73,25 @@ export default function MembersIndex() {
     const [perPage, setPerPage] = useState<string>('10');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const { openModal, Modal } = useViewModal();
-
+    const [dateRange, setDateRange] = useState<{ start?: Date; end?: Date }>({});
+    
+    const { openModal, Modal: FilterModalComponent } = useFilterModal();
+    const { openModal: openViewModal, Modal: ViewModalComponent } = useViewModal();
 
     // Debounce search input
     useEffect(() => {
+        console.log('Search changed:', search); // Debug
+        
         const timer = setTimeout(() => {
+            console.log('Debounced search set to:', search); // Debug
             setDebouncedSearch(search);
-            setCurrentPage(1); // Reset to page 1 when search changes
+            setCurrentPage(1);
         }, 500);
 
         return () => clearTimeout(timer);
     }, [search]);
 
-    // Fetch members data
+    // Fetch members data dengan filter baru
     const fetchMembers = async () => {
         setLoading(true);
         try {
@@ -95,38 +100,85 @@ export default function MembersIndex() {
                 per_page: perPage,
                 search: debouncedSearch,
                 gender: genderFilter !== 'all' ? genderFilter : '',
+                // PERHATIAN: TAMBAHKAN start_date dan end_date JIKA ADA
+                ...(dateRange.start && { start_date: dateRange.start.toISOString().split('T')[0] }),
+                ...(dateRange.end && { end_date: dateRange.end.toISOString().split('T')[0] }),
             });
 
-            // Debug URL
+            console.log('🔍 API Request URL:', params.toString()); // Debug
+            
             const url = `${appRoutes.members.api.list()}?${params}`;
-            console.log('Fetching from:', url);
-
             const response = await axios.get(url);
+            
+            console.log('✅ API Response:', {
+                total: response.data.total || 0,
+                count: response.data.data?.length || 0,
+                filtersUsed: {
+                    search: debouncedSearch,
+                    start_date: dateRange.start?.toISOString().split('T')[0],
+                    end_date: dateRange.end?.toISOString().split('T')[0]
+                }
+            });
+            
             setMembers(response.data.data);
             setPagination(response.data);
         } catch (error: any) {
-            console.error('Error fetching members:', error.response || error);
-            
-            if (error.response?.status === 404) {
-                toast.error('API endpoint tidak ditemukan. Periksa konfigurasi route.');
-            } else if (error.response?.status === 500) {
-                toast.error('Server error. Silakan coba lagi nanti.');
-            } else {
-                toast.error('Gagal memuat data member');
-            }
-            
-            // Set empty data
-            setMembers([]);
-            setPagination(null);
+            console.error('❌ Error fetching members:', error);
+            // ... error handling
         } finally {
             setLoading(false);
         }
     };
 
+    // Debug useEffect fetchMembers
     useEffect(() => {
+        console.log('Fetching with filters:', {
+            debouncedSearch,
+            genderFilter,
+            dateRange,
+            currentPage,
+            perPage
+        });
         fetchMembers();
-    }, [currentPage, perPage, debouncedSearch, genderFilter]);
+    }, [currentPage, perPage, debouncedSearch, genderFilter, dateRange]);
 
+    // Fungsi untuk handle filter dari modal
+    const handleFilterChange = (filters: FilterParams) => {
+        if (filters.search !== undefined) {
+            setSearch(filters.search);
+        }
+        
+        if (filters.gender !== undefined) {
+            setGenderFilter(filters.gender || 'all');
+        }
+        
+        setDateRange({
+            start: filters.startDate,
+            end: filters.endDate,
+        });
+        
+        setCurrentPage(1);
+    };
+
+    // Fungsi untuk membuka modal filter dengan state saat ini
+    const handleOpenFilterModal = () => {
+        const currentFilters: FilterParams = {
+            search: search,
+            gender: genderFilter !== 'all' ? genderFilter : undefined,
+            startDate: dateRange.start,
+            endDate: dateRange.end,
+        };
+        
+        openModal(currentFilters, handleFilterChange);
+    };
+
+    // Fungsi untuk reset semua filter
+    const handleResetFilters = () => {
+        setSearch('');
+        setGenderFilter('all');
+        setDateRange({});
+        setCurrentPage(1);
+    };
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('id-ID', {
@@ -152,11 +204,11 @@ export default function MembersIndex() {
     const getGenderBadge = (gender: boolean) => {
         return gender ? (
             <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100" variant="outline">
-                Laki-laki
+                Pria
             </Badge>
         ) : (
             <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-100" variant="outline">
-                Perempuan
+                Wanita
             </Badge>
         );
     };
@@ -169,7 +221,7 @@ export default function MembersIndex() {
         try {
             await axios.delete(appRoutes.members.api.destroy(memberCode));
             toast.success(`Member ${memberName} berhasil dihapus`);
-            fetchMembers(); // Refresh data
+            fetchMembers();
         } catch (error: any) {
             const message = error.response?.data?.message || 'Gagal menghapus member';
             toast.error(message);
@@ -193,7 +245,6 @@ export default function MembersIndex() {
             startPage = Math.max(1, endPage - maxButtons + 1);
         }
 
-        // Previous button
         buttons.push(
             <Button
                 key="prev"
@@ -206,7 +257,6 @@ export default function MembersIndex() {
             </Button>
         );
 
-        // First page
         if (startPage > 1) {
             buttons.push(
                 <Button
@@ -227,7 +277,6 @@ export default function MembersIndex() {
             }
         }
 
-        // Page numbers
         for (let i = startPage; i <= endPage; i++) {
             buttons.push(
                 <Button
@@ -241,7 +290,6 @@ export default function MembersIndex() {
             );
         }
 
-        // Last page
         if (endPage < pagination.last_page) {
             if (endPage < pagination.last_page - 1) {
                 buttons.push(
@@ -262,7 +310,6 @@ export default function MembersIndex() {
             );
         }
 
-        // Next button
         buttons.push(
             <Button
                 key="next"
@@ -279,10 +326,10 @@ export default function MembersIndex() {
     };
 
     const viewMember = (member: Member) => {
-        openModal(
-        memberViewSchema.title(member),
-        renderViewSchema(memberViewSchema, member),
-        memberViewSchema.description?.(member)
+        openViewModal(
+            memberViewSchema.title(member),
+            renderViewSchema(memberViewSchema, member),
+            memberViewSchema.description?.(member)
         );
     };
 
@@ -314,33 +361,92 @@ export default function MembersIndex() {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <div className="relative md:col-span-2">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Cari nama member atau kode member..."
-                                    className="pl-9"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                            
-                            <Select value={genderFilter} onValueChange={setGenderFilter}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Filter Gender" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Gender</SelectItem>
-                                    <SelectItem value="1">Laki-laki</SelectItem>
-                                    <SelectItem value="0">Perempuan</SelectItem>
-                                </SelectContent>
-                            </Select>
+                {/* Filters - FULL WIDTH LAYOUT */}
+                <div className="w-full space-y-3">
+                    {/* Search Bar */}
+                    <div className="flex flex-col sm:flex-row gap-3 w-full">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari nama member atau kode member..."
+                                className="pl-9 w-full"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            {search && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                                    onClick={() => setSearch('')}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
+                        
+                        {/* Filter Button - Full width on mobile */}
+                        <Button
+                            variant="outline"
+                            onClick={handleOpenFilterModal}
+                            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+                        >
+                            <Filter className="h-4 w-4" />
+                            Filter
+                        </Button>
+                    </div>
+
+                    {/* Active Filters Display */}
+                    {(genderFilter !== 'all' || dateRange.start || dateRange.end || search) && (
+                        <div className="w-full">
+                            <div className="flex items-center justify-between">
+                                <div className="flex flex-wrap gap-2 flex-1">
+                                    {search && (
+                                        <Badge variant="secondary" className="text-xs">
+                                            Search: {search}
+                                        </Badge>
+                                    )}
+                                    {genderFilter !== 'all' && (
+                                        <Badge variant="secondary" className="text-xs">
+                                            Gender: {genderFilter === '1' ? 'Laki-laki' : 'Perempuan'}
+                                        </Badge>
+                                    )}
+                                    {dateRange.start && (
+                                        <Badge variant="secondary" className="text-xs">
+                                            Dari: {dateRange.start.toLocaleDateString('id-ID', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            })}
+                                        </Badge>
+                                    )}
+                                    {dateRange.end && (
+                                        <Badge variant="secondary" className="text-xs">
+                                            Sampai: {dateRange.end.toLocaleDateString('id-ID', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            })}
+                                        </Badge>
+                                    )}
+                                </div>
+                                
+                                {(genderFilter !== 'all' || dateRange.start || dateRange.end || search) && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleResetFilters}
+                                        className="text-xs h-8 px-2 ml-2"
+                                    >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Clear All
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Statistics */}
                 <div className="grid gap-4 md:grid-cols-4">
@@ -442,7 +548,6 @@ export default function MembersIndex() {
                                 </CardDescription>
                             </div>
                             
-                            {/* Pindahkan dropdown per page ke sini */}
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground">Show:</span>
                                 <Select value={perPage} onValueChange={setPerPage}>
@@ -474,7 +579,6 @@ export default function MembersIndex() {
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
-                                        // Loading skeleton - dengan kolom baru
                                         Array.from({ length: parseInt(perPage) }).map((_, index) => (
                                             <TableRow key={index}>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -487,9 +591,10 @@ export default function MembersIndex() {
                                         ))
                                     ) : members.length === 0 ? (
                                         <TableRow>
-                                            {/* Update colSpan */}
                                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                {debouncedSearch ? 'Tidak ada member yang sesuai dengan pencarian' : 'Belum ada data member'}
+                                                {debouncedSearch || genderFilter !== 'all' || dateRange.start || dateRange.end 
+                                                    ? 'Tidak ada member yang sesuai dengan pencarian' 
+                                                    : 'Belum ada data member'}
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -582,7 +687,14 @@ export default function MembersIndex() {
                     </CardContent>
                 </Card>
             </div>
-            <Modal />
+            <FilterModalComponent 
+                title="Filter Member"
+                showSearch={true}
+                showGender={true}
+                showDateRange={true}
+            />
+
+            <ViewModalComponent />
         </AppLayout>
     );
 }

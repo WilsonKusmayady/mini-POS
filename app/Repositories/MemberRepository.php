@@ -9,6 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class MemberRepository implements MemberRepositoryInterface
 {
+    
     public function getPaginated(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
     {
         $query = Member::query();
@@ -17,9 +18,9 @@ class MemberRepository implements MemberRepositoryInterface
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('member_code', 'like', "%{$search}%")
-                  ->orWhere('member_name', 'like', "%{$search}%")
-                  ->orWhere('phone_number', 'like', "%{$search}%");
+                 $q->whereRaw('LOWER(member_name) LIKE ?', ['%' . strtolower($search) . '%'])
+                    ->orWhereRaw('LOWER(member_code) LIKE ?', ['%' . strtolower($search) . '%'])
+                    ->orWhereRaw('LOWER(phone_number) LIKE ?', ['%' . strtolower($search) . '%']);
             });
         }
 
@@ -27,8 +28,18 @@ class MemberRepository implements MemberRepositoryInterface
             $query->where('gender', $filters['gender']);
         }
 
+        if (!empty($filters['start_date'])) {
+        $query->whereDate('birth_date', '>=', $filters['start_date']);
+    }
+
+        if (!empty($filters['end_date'])) {
+            $query->whereDate('birth_date', '<=', $filters['end_date']);
+        }
+
         return $query->orderBy('created_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
     }
+
+    
 
     public function findByCode(string $memberCode)
     {

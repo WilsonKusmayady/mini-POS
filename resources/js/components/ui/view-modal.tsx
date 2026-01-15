@@ -2,9 +2,9 @@ import * as React from 'react';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,6 @@ interface ViewModalProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-    // showCloseButton?: boolean;
 }
 
 export function ViewModal({
@@ -114,6 +113,7 @@ export function useViewModal() {
         content: null,
     });
 
+    // PERBAIKAN DI SINI: Fungsi openModal sekarang menerima 3 parameter
     const openModal = (title: string, content: React.ReactNode, description?: string) => {
         setModalContent({ title, content, description });
         setIsOpen(true);
@@ -130,6 +130,7 @@ export function useViewModal() {
             open={isOpen}
             onOpenChange={setIsOpen}
             triggerText=""
+            size="lg" // Anda bisa menyesuaikan size sesuai kebutuhan
         >
             {modalContent.content}
         </ViewModal>
@@ -140,5 +141,6 @@ export function useViewModal() {
         closeModal,
         Modal,
         isOpen,
+        modalContent, // opsional: jika Anda perlu mengakses content saat ini
     };
 }
