@@ -8,11 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trash2, Plus, Save, ArrowLeft } from 'lucide-react';
 import { FormEventHandler } from 'react';
-
+import { appRoutes } from '@/lib/app-routes';
 import { ItemCombobox, Item } from '@/components/item-combobox';
 import { MoneyInput } from '@/components/ui/money-input';
 
-// --- Tipe Data ---
+const breadcrumbs = [
+    {
+      title: 'Dashboard',
+      href: appRoutes.dashboard(),
+    },
+    {
+      title: 'Purchases',
+      href: appRoutes.purchases.index(),
+    },
+    {
+      title: 'Transaksi Baru',
+      href: appRoutes.purchases.create(),
+    }
+  ];
 
 interface Supplier {
     supplier_id: number;
@@ -88,15 +101,15 @@ export default function PurchaseCreate({ suppliers }: CreateProps) {
 
     const handleSubmit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('purchases.store'));
+        post(appRoutes.purchases.store());
     };
 
     // Breadcrumbs navigasi
-    const breadcrumbs = [
-        { title: 'Dashboard', href: route('dashboard') },
-        { title: 'Pembelian', href: route('purchases.index') },
-        { title: 'Buat Transaksi', href: '#' }
-    ];
+    // const breadcrumbs = [
+    //     { title: 'Dashboard', href: route('dashboard') },
+    //     { title: 'Pembelian', href: route('purchases.index') },
+    //     { title: 'Buat Transaksi', href: '#' }
+    // ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -107,7 +120,7 @@ export default function PurchaseCreate({ suppliers }: CreateProps) {
                 {/* Header dengan Tombol Kembali */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Link href={route('purchases.index')}>
+                        <Link href={appRoutes.purchases.index()}>
                             <Button variant="ghost" size="icon">
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
@@ -263,7 +276,7 @@ export default function PurchaseCreate({ suppliers }: CreateProps) {
                     </Card>
 
                     <div className="flex justify-end gap-2">
-                        <Link href={route('purchases.index')}>
+                        <Link href={appRoutes.purchases.index()}>
                             <Button type="button" variant="outline" size="lg">
                                 Batal
                             </Button>

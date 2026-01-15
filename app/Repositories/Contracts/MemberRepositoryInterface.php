@@ -7,6 +7,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 interface MemberRepositoryInterface
 {
     public function getPaginated(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator;
+    public function search(array $filters = [], int $perPage = 20, int $page = 1): LengthAwarePaginator;
     public function findByCode(string $memberCode);
     public function findByCodeWithSales(string $memberCode);
     public function create(array $data);

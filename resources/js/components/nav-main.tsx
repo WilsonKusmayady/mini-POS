@@ -4,6 +4,10 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    // Tambahkan komponen Sub menu ini
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { useActiveUrl } from '@/hooks/use-active-url';
 import { type NavItem, isNavGroupItem, isNavLinkItem } from '@/types';
@@ -78,15 +82,14 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     </span>
                                 </SidebarMenuButton>
 
-                                {/* Submenu Items */}
+                                {/* Submenu Items - PERBAIKAN DISINI */}
                                 {isExpanded && (
-                                    <div className="mt-1 ml-4 space-y-1">
+                                    <SidebarMenuSub>
                                         {item.items.map((subItem) => (
-                                            <SidebarMenuItem key={subItem.title}>
-                                                <SidebarMenuButton
+                                            <SidebarMenuSubItem key={subItem.title}>
+                                                <SidebarMenuSubButton
                                                     asChild
                                                     isActive={urlIsActive(subItem.href)}
-                                                    className="h-8 text-sm hover:bg-accent/50"
                                                 >
                                                     <Link href={subItem.href} prefetch>
                                                         <span className="flex items-center gap-2">
@@ -96,10 +99,10 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                                             <span>{subItem.title}</span>
                                                         </span>
                                                     </Link>
-                                                </SidebarMenuButton>
-                                            </SidebarMenuItem>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
                                         ))}
-                                    </div>
+                                    </SidebarMenuSub>
                                 )}
                             </SidebarMenuItem>
                         );

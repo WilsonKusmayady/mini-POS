@@ -53,19 +53,29 @@ export function ItemCombobox({
     const fetchItems = async (pageParam: number, searchParam: string, reset = false) => {
         try {
             setLoading(true);
-            const { data } = await axios.get('/items/search', {
+                const res = await axios.get('/items/search', {
                 params: {
                     page: pageParam,
                     q: searchParam
                 }
             });
 
-            const newItems = data.data ? data.data : data;
+            let newItems: Item[] = [];
+
+            if (Array.isArray(res.data?.data)) {
+                newItems = res.data.data;
+                setHasMore(!!res.data.next_page_url);
+            }
+            else if (Array.isArray(res.data)) {
+                newItems = res.data;
+                setHasMore(false);
+            }
+            else {
+                newItems = [];
+                setHasMore(false);
+            }
 
             setItems(prev => reset ? newItems : [...prev, ...newItems]);
-
-            setHasMore(!!data.next_page_url);
-            setLoading(false);
         } catch (error) {
             console.error("Gagal load item", error);
             setLoading(false);

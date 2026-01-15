@@ -63,7 +63,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     icon: ShoppingCart,
                 },
                 {
-                    title: 'Penjualan',
+                    title: 'Sales',
                     href: '/sales',
                     icon: CreditCard,
                 },

@@ -39,7 +39,33 @@ class MemberRepository implements MemberRepositoryInterface
         return $query->orderBy('created_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
     }
 
-    
+    public function search(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
+    {
+        $query = Member::query();
+
+        // Apply search filter
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(member_name) LIKE ?', ['%' . strtolower($search) . '%'])
+                ->orWhereRaw('LOWER(member_code) LIKE ?', ['%' . strtolower($search) . '%'])
+                ->orWhereRaw('LOWER(phone_number) LIKE ?', ['%' . strtolower($search) . '%']);
+            });
+        }
+
+        // Select only necessary fields for combobox
+        return $query->select([
+            'member_code',
+            'member_name', 
+            'phone_number',
+            'address',
+            'gender',
+            'birth_date',
+            'created_at'
+        ])
+        ->orderBy('created_at', 'desc')
+        ->paginate($perPage, ['*'], 'page', $page);
+    }
 
     public function findByCode(string $memberCode)
     {

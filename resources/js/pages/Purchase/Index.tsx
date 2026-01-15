@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { appRoutes } from '@/lib/app-routes'; 
 
 // --- Interface Data ---
 interface Supplier {
@@ -98,11 +99,11 @@ export default function PurchaseIndex({ purchases }: PurchaseIndexProps) {
   const breadcrumbs = [
     {
       title: 'Dashboard',
-      href: route('dashboard'),
+      href: appRoutes.dashboard(),
     },
     {
-      title: 'Pembelian',
-      href: route('purchases.index'),
+      title: 'Purchases',
+      href: appRoutes.purchases.index(),
     }
   ];
 
@@ -126,7 +127,7 @@ export default function PurchaseIndex({ purchases }: PurchaseIndexProps) {
               Export
             </Button>
             {/* Link ke halaman Create */}
-            <Link href={route('purchases.create')}>
+            <Link href={appRoutes.purchases.create()}>
                 <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Tambah Pembelian

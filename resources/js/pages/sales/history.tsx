@@ -24,7 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: appRoutes.dashboard(),
   },
   {
-    title: 'Penjualan',
+    title: 'Sales',
     href: appRoutes.sales.index(),
   }
 ];

@@ -42,6 +42,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/sales/create', function () {
         return Inertia::render('sales/create');
     })->name('sales.create');
+    Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
+
 
     Route::post('/logout', [UserController::class, 'logout'])
         ->name('logout');
@@ -49,6 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchase/create', [PurchaseController::class, 'create'])->name('purchase.create');
     Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
 
+    Route::get('/members/search', [MemberController::class, 'search'])->name('members.search');
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
@@ -56,6 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/members/{memberCode}/edit', [MemberController::class, 'edit'])->name('members.edit');
     Route::put('/members/{memberCode}', [MemberController::class, 'update'])->name('members.update');
     
+
     // API routes for AJAX - harus didefinisikan terpisah
     Route::prefix('api')->group(function () {
         Route::get('/members', [MemberController::class, 'apiIndex'])->name('members.api.index');

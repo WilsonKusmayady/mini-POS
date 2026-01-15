@@ -6,6 +6,7 @@ use App\Services\MemberService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
+use App\Models\Member;
 
 class MemberController extends Controller
 {
@@ -58,6 +59,36 @@ class MemberController extends Controller
         }
     }
 
+    public function apiStore(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'member_name' => 'required|string|max:255',
+            'phone_number' => 'required|string|max:20|unique:members,phone_number',
+            'address' => 'required|string',
+            'gender' => 'required|in:0,1',
+            'birth_date' => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $member = $this->memberService->createMember($request->all());
+            
+            return response()->json([
+                'success' => true,
+                'member' => $member,
+                'message' => 'Member berhasil dibuat'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat member: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     /**
      * Show create member form
      */
@@ -185,6 +216,73 @@ class MemberController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menghapus member: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function search(Request $request)
+    {
+        // Debug: cek apakah method dipanggil
+        \Log::info('Members search called', ['params' => $request->all()]);
+        
+        $validator = Validator::make($request->all(), [
+            'search' => 'nullable|string|max:255',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|max:50'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $search = $request->input('search', '');
+            $perPage = $request->input('per_page', 20);
+            $page = $request->input('page', 1);
+            
+            // Log untuk debugging
+            \Log::info('Searching members', [
+                'search' => $search,
+                'perPage' => $perPage,
+                'page' => $page
+            ]);
+            
+            // Query sederhana dulu untuk test
+            $query = Member::query();
+            
+            if ($search) {
+                $query->where('member_name', 'like', '%' . $search . '%')
+                    ->orWhere('member_code', 'like', '%' . $search . '%');
+            }
+            
+            $members = $query->select([
+                'member_code',
+                'member_name', 
+                'phone_number',
+                'address',
+                'gender',
+                'birth_date'
+            ])
+            ->orderBy('member_name')
+            ->paginate($perPage, ['*'], 'page', $page);
+            
+            \Log::info('Found members', ['count' => $members->count()]);
+            
+            // Format response yang diharapkan frontend
+            return response()->json([
+                'data' => $members->items(),
+                'current_page' => $members->currentPage(),
+                'per_page' => $members->perPage(),
+                'total' => $members->total(),
+                'last_page' => $members->lastPage(),
+                'next_page_url' => $members->nextPageUrl(),
+                'prev_page_url' => $members->previousPageUrl(),
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in members search: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to search members: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -25,6 +25,7 @@ export const appRoutes = {
         create: () => '/sales/create',
         edit: (id: number | string) => `/sales/${id}/edit`,
         show: (id: number | string) => `/sales/${id}`,
+        store: () => '/sales',
         api: {
             list: () => '/api/sales',
         },
@@ -34,6 +35,7 @@ export const appRoutes = {
     members: {
         index: () => '/members',
         create: () => '/members/create',
+        store: () => '/members',
         edit: (id: string) => `/members/${id}/edit`,
         show: (id: string) => `/members/${id}`,
         api: {
@@ -41,6 +43,13 @@ export const appRoutes = {
             destroy: (id: string) => `/api/members/${id}`,
             statistics: () => '/api/members/statistics',
         },
+    },
+
+    purchases: {
+        index: () => '/purchases',
+        create: () => '/purchases/create',
+        store: () => '/purchases', // POST
+        show: (id: number | string) => `/purchases/${id}`,
     },
 } as const;
 

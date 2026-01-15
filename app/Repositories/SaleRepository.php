@@ -18,9 +18,9 @@ class SaleRepository implements SaleRepositoryInterface
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('sales_invoice_code', 'like', "%{$search}%")
-                  ->orWhere('customer_name', 'like', "%{$search}%")
-                  ->orWhere('member_code', 'like', "%{$search}%");
+                $q->whereRaw('LOWER(sales_invoice_code) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(customer_name) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(member_code) LIKE ?', ["%{$search}%"]);
             });
         }
 

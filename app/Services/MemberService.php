@@ -207,4 +207,9 @@ class MemberService
 
         return $formatted;
     }
+    public function searchMembers(string $search = '', int $perPage = 20, int $page = 1)
+    {
+        $filters = $search ? ['search' => $search] : [];
+        return $this->memberRepository->search($filters, $perPage, $page);
+    }
 }
