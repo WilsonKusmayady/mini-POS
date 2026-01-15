@@ -42,7 +42,7 @@ export interface SharedData {
     flash: {
         success: string | null;
         error: string | null;
-    };
+    }
     [key: string]: unknown;
 }
 

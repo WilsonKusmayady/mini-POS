@@ -33,17 +33,14 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Eye, Search, X, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal } from 'lucide-react';
-import { useState, FormEventHandler, useEffect } from 'react';
+import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal } from 'lucide-react';
+import { useState, FormEventHandler } from 'react';
 import { SharedData } from '@/types';
 
-// --- IMPORT VIEW MODAL ---
+// --- IMPORT COMPONENTS ---
 import { ViewModal } from '@/components/ui/view-modal'; 
-
-// Money Input Formatted
 import { MoneyInput } from '@/components/ui/money-input';
-// import { index } from '@/routes/items';
-import { getRandomValues } from 'crypto';
+import { SearchInput } from '@/components/ui/search-input'; // Import Component Baru
 
 // --- Interfaces ---
 
@@ -105,30 +102,22 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
-    // --- Search & Sort State ---
-    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    // --- Sort State ---
     const currentSortBy = filters?.sort_by || 'item_name';
     const currentSortDir = filters?.sort_direction || 'asc';
 
-    // --- Search Logic ---
-    useEffect(() => {
-        const currentSearchParam = filters?.search || '';
-        if (searchTerm === currentSearchParam) return;
-
-        const delaySearch = setTimeout(() => {
-            router.get(
-                route('items.index'),
-                { 
-                    search: searchTerm,
-                    sort_by: currentSortBy,
-                    sort_direction: currentSortDir 
-                },
-                { preserveState: true, preserveScroll: true, replace: true }
-            );
-        }, 300);
-
-        return () => clearTimeout(delaySearch);
-    }, [searchTerm, filters]);
+    // --- Search Handler (Diganti menggunakan SearchInput) ---
+    const handleSearch = (term: string) => {
+        router.get(
+            route('items.index'),
+            { 
+                search: term,
+                sort_by: currentSortBy,
+                sort_direction: currentSortDir 
+            },
+            { preserveState: true, preserveScroll: true, replace: true }
+        );
+    };
 
     // --- Sort Handler ---
     const handleSort = (field: string) => {
@@ -138,7 +127,11 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         }
         router.get(
             route('items.index'),
-            { search: searchTerm, sort_by: field, sort_direction: direction },
+            { 
+                search: filters?.search, // Ambil search dari props filters
+                sort_by: field, 
+                sort_direction: direction 
+            },
             { preserveState: true, preserveScroll: true, replace: true }
         );
     };
@@ -174,7 +167,6 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         setIsEditOpen(true);
     };
     
-    // Logic: Set item lalu buka ViewModal
     const openDetailModal = (item: Item) => { 
         setSelectedItem(item); 
         setIsDetailOpen(true); 
@@ -237,21 +229,14 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                         <p className="text-muted-foreground">Total {items.total} barang dalam database.</p>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="text"
-                                placeholder="Cari kode atau nama..."
-                                className="pl-9 pr-8"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            {searchTerm && (
-                                <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground">
-                                    <X className="h-4 w-4" />
-                                </button>
-                            )}
-                        </div>
+                        
+                        {/* REUSABLE SEARCH COMPONENT */}
+                        <SearchInput 
+                            value={filters?.search || ''}
+                            onSearch={handleSearch}
+                            placeholder="Cari kode atau nama..."
+                        />
+
                         <Button onClick={openCreateModal}><Plus className="mr-2 h-4 w-4" /> Tambah</Button>
                     </div>
                 </div>
@@ -285,7 +270,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 {items.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                            {searchTerm ? 'Barang tidak ditemukan.' : 'Belum ada data barang.'}
+                                            {filters?.search ? 'Barang tidak ditemukan.' : 'Belum ada data barang.'}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -353,13 +338,13 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </CardContent>
                 </Card>
 
-                {/* --- PENGGUNAAN VIEW MODAL UNTUK DETAIL BARANG --- */}
+                {/* --- VIEW MODAL --- */}
                 <ViewModal
                     title="Detail Barang"
                     description={selectedItem ? `Kode: ${selectedItem.item_code}` : 'Informasi detail barang'}
                     open={isDetailOpen}
                     onOpenChange={setIsDetailOpen}
-                    triggerText="" // Trigger manual via state
+                    triggerText=""
                     size="md"
                 >
                     {selectedItem ? (
@@ -428,7 +413,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     )}
                 </ViewModal>
 
-                {/* --- MODAL CREATE (Tetap menggunakan Dialog Standar) --- */}
+                {/* --- MODAL CREATE --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Tambah Barang</DialogTitle></DialogHeader>
@@ -439,7 +424,6 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 <div className="space-y-2"><Label>Stok Awal</Label><Input type="number" value={data.item_stock} onChange={(e) => setData('item_stock', parseInt(e.target.value))} required /></div>
                                 <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                             </div>
-                            {/* <div className="space-y-2"><Label>Harga Jual</Label><Input type="number" value={data.item_price} onChange={(e) => setData('item_price', parseFloat(e.target.value))} required /></div> */}
                             <div className="space-y-2"><Label>Harga Jual</Label>
                                 <MoneyInput
                                     placeholder="Rp 0"
@@ -453,7 +437,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT (Tetap menggunakan Dialog Standar) --- */}
+                {/* --- MODAL EDIT --- */}
                 <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Edit Barang</DialogTitle></DialogHeader>
