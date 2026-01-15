@@ -1,4 +1,5 @@
 import { ViewSchema } from '@/hooks/use-view-schema';
+import { Badge } from '@/components/ui/badge';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -39,13 +40,16 @@ export const salesViewSchema: ViewSchema = {
         {
           label: 'Status',
           key: 'sales_status',
-          type: 'status',
-          options: {
-            labels: {
-              1: 'Paid',
-              0: 'Cancelled',
-            },
-          },
+          value: (data) =>
+            data.sales_status ? (
+              <Badge className="bg-green-100 text-green-800" variant="outline">
+                Paid
+              </Badge>
+            ) : (
+              <Badge className="bg-red-100 text-red-800" variant="outline">
+                Cancelled
+              </Badge>
+            ),
         },
       ],
     },
@@ -107,22 +111,26 @@ export const salesViewSchema: ViewSchema = {
           label: 'Daftar Item',
           key: 'items',
           value: (data) =>
-            data.items
-              .map(
-                (item: any) =>
-                  `${item.item_name} × ${item.sales_quantity}`
-              )
-              .join(', '),
+            Array.isArray(data.items) && data.items.length > 0
+              ? data.items
+                  .map(
+                    (item: any) =>
+                      `${item.item_name} × ${item.sales_quantity}`
+                  )
+                  .join(', ')
+              : '-',
         },
         {
           label: 'Total Item',
           key: 'items',
           value: (data) =>
-            data.items.reduce(
-              (total: number, item: any) =>
-                total + item.sales_quantity,
-              0
-            ),
+            Array.isArray(data.items)
+              ? data.items.reduce(
+                  (total: number, item: any) =>
+                    total + item.sales_quantity,
+                  0
+                )
+              : 0,
         },
       ],
     },

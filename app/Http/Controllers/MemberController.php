@@ -222,9 +222,6 @@ class MemberController extends Controller
 
     public function search(Request $request)
     {
-        // Debug: cek apakah method dipanggil
-        \Log::info('Members search called', ['params' => $request->all()]);
-        
         $validator = Validator::make($request->all(), [
             'search' => 'nullable|string|max:255',
             'page' => 'nullable|integer|min:1',
@@ -240,35 +237,18 @@ class MemberController extends Controller
             $perPage = $request->input('per_page', 20);
             $page = $request->input('page', 1);
             
-            // Log untuk debugging
             \Log::info('Searching members', [
                 'search' => $search,
                 'perPage' => $perPage,
                 'page' => $page
             ]);
             
-            // Query sederhana dulu untuk test
-            $query = Member::query();
-            
-            if ($search) {
-                $query->where('member_name', 'like', '%' . $search . '%')
-                    ->orWhere('member_code', 'like', '%' . $search . '%');
-            }
-            
-            $members = $query->select([
-                'member_code',
-                'member_name', 
-                'phone_number',
-                'address',
-                'gender',
-                'birth_date'
-            ])
-            ->orderBy('member_name')
-            ->paginate($perPage, ['*'], 'page', $page);
+            // Panggil service dengan parameter yang benar
+            $members = $this->memberService->searchMembers($search, $perPage, $page);
             
             \Log::info('Found members', ['count' => $members->count()]);
             
-            // Format response yang diharapkan frontend
+            // Format response
             return response()->json([
                 'data' => $members->items(),
                 'current_page' => $members->currentPage(),

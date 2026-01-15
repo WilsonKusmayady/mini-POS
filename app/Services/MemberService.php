@@ -207,9 +207,25 @@ class MemberService
 
         return $formatted;
     }
-    public function searchMembers(string $search = '', int $perPage = 20, int $page = 1)
+    /**
+     * Search members for combobox
+     */
+        public function searchMembers(?string $search = null, int $perPage = 20, int $page = 1)
     {
+        // Konversi null ke string kosong
+        $search = $search ?? '';
+        
+        // Convert to array for repository
         $filters = $search ? ['search' => $search] : [];
+        
+        // Debug logging
+        \Log::info('Service searchMembers called', [
+            'search' => $search,
+            'perPage' => $perPage,
+            'page' => $page,
+            'filters' => $filters
+        ]);
+        
         return $this->memberRepository->search($filters, $perPage, $page);
     }
 }

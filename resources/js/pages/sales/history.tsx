@@ -8,8 +8,8 @@ import {Card,CardContent,CardDescription,CardHeader,CardTitle} from '@/component
 import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from '@/components/ui/select';
 import { salesViewSchema } from '@/view-schemas/sales.schema';
 import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
@@ -39,7 +39,7 @@ interface Sale {
   sales_hasil_discount_value: number;
   sales_grand_total: number;
   sales_payment_method: 'cash' | 'debit' | 'qris';
-  sales_status: number;
+  sales_status: boolean;
   user_id: number;
   created_at: string;
   items: Array<{
@@ -127,16 +127,17 @@ export default function SalesHistory({
     });
   };
 
-  const getStatusBadge = (status: number) => {
-    if (status === 1) {
+  const getStatusBadge = (status: boolean) => {
+    if (status === true) {
       return (
-        <Badge className="bg-green-100 text-green-800 hover:bg-green-100" variant="outline">
+        <Badge className="bg-green-100 text-green-800" variant="outline">
           Paid
         </Badge>
       );
     }
+
     return (
-      <Badge className="bg-red-100 text-red-800 hover:bg-red-100" variant="outline">
+      <Badge className="bg-red-100 text-red-800" variant="outline">
         Cancelled
       </Badge>
     );
@@ -671,7 +672,7 @@ export default function SalesHistory({
                                 <Eye className="mr-2 h-4 w-4" />
                                 Detail
                               </DropdownMenuItem>
-                              {sale.sales_status === 1 && (
+                              {sale.sales_status && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-red-600">

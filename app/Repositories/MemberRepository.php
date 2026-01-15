@@ -39,17 +39,27 @@ class MemberRepository implements MemberRepositoryInterface
         return $query->orderBy('created_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
     }
 
-    public function search(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
+    public function search(array $filters = [], int $perPage = 20, int $page = 1): LengthAwarePaginator
     {
         $query = Member::query();
 
-        // Apply search filter
+        // Apply search filter - FIXED CASE INSENSITIVE
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->whereRaw('LOWER(member_name) LIKE ?', ['%' . strtolower($search) . '%'])
-                ->orWhereRaw('LOWER(member_code) LIKE ?', ['%' . strtolower($search) . '%'])
-                ->orWhereRaw('LOWER(phone_number) LIKE ?', ['%' . strtolower($search) . '%']);
+            
+            // Option 1: Jika database collation sudah case-insensitive
+            // $query->where(function ($q) use ($search) {
+            //     $q->where('member_name', 'like', '%' . $search . '%')
+            //     ->orWhere('member_code', 'like', '%' . $search . '%')
+            //     ->orWhere('phone_number', 'like', '%' . $search . '%');
+            // });
+            
+            // Option 2: Jika perlu benar-benar case-insensitive
+            $lowerSearch = strtolower($search);
+            $query->where(function ($q) use ($lowerSearch) {
+                $q->whereRaw('LOWER(member_name) LIKE ?', ["%{$lowerSearch}%"])
+                  ->orWhereRaw('LOWER(member_code) LIKE ?', ["%{$lowerSearch}%"])
+                  ->orWhereRaw('LOWER(phone_number) LIKE ?', ["%{$lowerSearch}%"]);
             });
         }
 
@@ -63,7 +73,7 @@ class MemberRepository implements MemberRepositoryInterface
             'birth_date',
             'created_at'
         ])
-        ->orderBy('created_at', 'desc')
+        ->orderBy('member_name', 'asc') // Order by name ascending
         ->paginate($perPage, ['*'], 'page', $page);
     }
 
