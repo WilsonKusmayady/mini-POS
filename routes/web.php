@@ -49,7 +49,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{memberCode}', [MemberController::class, 'show'])->name('show');
         Route::get('/{memberCode}/edit', [MemberController::class, 'edit'])->name('edit');
         Route::put('/{memberCode}', [MemberController::class, 'update'])->name('update');
-        // Note: Destroy member ada di group API di bawah
+        // Route::get('/search', [MemberController::class, 'search']);
     });
 
     // --- 3. Transaksi: PURCHASES (Pembelian) ---
@@ -63,10 +63,12 @@ Route::middleware('auth')->group(function () {
     // --- 4. Transaksi: SALES (Penjualan) ---
     Route::prefix('sales')->name('sales.')->group(function () {
         Route::get('/', [SalesController::class, 'index'])->name('index');
+        Route::post('/', [SalesController::class, 'store'])->name('store');
         Route::get('/create', function () {
             return Inertia::render('sales/create');
         })->name('create');
     });
+
 
     // --- INTERNAL API ROUTES (AJAX Helper) ---
     Route::prefix('api')->group(function () {
@@ -74,7 +76,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/members', [MemberController::class, 'apiIndex'])->name('members.api.index');
         Route::delete('/members/{memberCode}', [MemberController::class, 'destroy'])->name('members.api.destroy');
         Route::get('/members/statistics', [MemberController::class, 'getStatistics'])->name('members.api.statistics');
-        
+        Route::get('/members/search', [MemberController::class, 'search'])->name('members.api.search');
         // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
     });

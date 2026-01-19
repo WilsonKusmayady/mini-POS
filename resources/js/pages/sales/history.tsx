@@ -3,7 +3,7 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus,Pencil, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, Calendar, X } from 'lucide-react';
 import {Card,CardContent,CardDescription,CardHeader,CardTitle} from '@/components/ui/card';
 import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+// import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -31,7 +34,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface Sale {
   sales_invoice_code: string;
-  customer_name: string | null;
+  customer_name: string
   member_code: string | null;
   sales_date: string;
   sales_subtotal: number;
@@ -79,6 +82,10 @@ export default function SalesHistory({
   filters: initialFilters
 }: SalesHistoryProps) {
   const { openModal, Modal } = useViewModal();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
   
   // State untuk data
   const [sales, setSales] = useState<Sale[]>(Array.isArray(initialSales) ? initialSales : []);
@@ -93,8 +100,8 @@ export default function SalesHistory({
   });
   const [filters, setFilters] = useState({
     search: initialFilters?.search || '',
-    status: initialFilters?.status || 'all', // Ganti dari '' ke 'all'
-    payment_method: initialFilters?.payment_method || 'all', // Ganti dari '' ke 'all'
+    status: initialFilters?.status || 'all',
+    payment_method: initialFilters?.payment_method || 'all',
     start_date: initialFilters?.start_date || '',
     end_date: initialFilters?.end_date || '',
   });
@@ -163,21 +170,29 @@ export default function SalesHistory({
     );
   };
 
-  // Ganti fungsi truncateItems:
-  const truncateItems = (items: Sale['items'], maxItems = 2) => {
-    if (!items || !Array.isArray(items)) return '-';
-    if (items.length <= maxItems) {
-      return items.map(item => item?.item_name || '-').join(', ');
+  // Fungsi untuk menampilkan barang dengan format: nama (jumlah), nama2 (jumlah), ...
+  const formatItemsDisplay = (items: Sale['items'], maxItems = 2) => {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return '-';
     }
-    return `${items.slice(0, maxItems).map(item => item?.item_name || '-').join(', ')} +${items.length - maxItems} lainnya`;
+    
+    const formattedItems = items.map(item => 
+      `${item?.item_name || 'Unknown'} (${item?.sales_quantity || 0})`
+    );
+    
+    if (formattedItems.length <= maxItems) {
+      return formattedItems.join(', ');
+    }
+    
+    // Ambil maxItems pertama dan tambahkan ...
+    return `${formattedItems.slice(0, maxItems).join(', ')}...`;
   };
 
   // Fetch data dengan pagination
-  // Di dalam fetchSales function:
   const fetchSales = async (page = pagination.current_page) => {
     setLoading(true);
-      try {
-        const params = new URLSearchParams({
+    try {
+      const params = new URLSearchParams({
         page: page.toString(),
         per_page: perPage,
         ...(filters.search && { search: filters.search }),
@@ -190,7 +205,6 @@ export default function SalesHistory({
       const url = `/api/sales?${params}`;
       const response = await axios.get(url);
       
-      // Validasi data
       if (response.data && response.data.data) {
         setSales(Array.isArray(response.data.data) ? response.data.data : []);
         setPagination({
@@ -202,7 +216,6 @@ export default function SalesHistory({
           to: response.data.to || 0,
         });
       } else {
-        // Reset jika data tidak valid
         setSales([]);
         setPagination({
           current_page: 1,
@@ -217,7 +230,7 @@ export default function SalesHistory({
     } catch (error: any) {
       console.error('Error fetching sales:', error);
       toast.error('Gagal memuat data penjualan');
-      setSales([]); // Reset ke array kosong jika error
+      setSales([]);
     } finally {
       setLoading(false);
     }
@@ -259,6 +272,35 @@ export default function SalesHistory({
       per_page: parseInt(value),
       current_page: 1 
     }));
+  };
+
+  // Fungsi untuk format tanggal range
+  const formatDateRange = () => {
+    if (filters.start_date && filters.end_date) {
+      const start = new Date(filters.start_date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+      });
+      const end = new Date(filters.end_date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      return `${start} - ${end}`;
+    } else if (filters.start_date) {
+      return `Dari ${new Date(filters.start_date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })}`;
+    } else if (filters.end_date) {
+      return `Sampai ${new Date(filters.end_date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })}`;
+    }
+    return 'Pilih Tanggal';
   };
 
   // Debounce search
@@ -408,7 +450,168 @@ export default function SalesHistory({
           </div>
         </div>
 
-        {/* Summary Card */}
+        {/* Filter Card - DI PINDAHKAN KE ATAS SUMMARY */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Filter Transaksi</CardTitle>
+            <CardDescription>
+              Saring data transaksi berdasarkan kriteria tertentu
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {/* Search Input */}
+              <div className="md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari kode invoice, nama pelanggan..."
+                    className="pl-9"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              {/* Status Filter */}
+              <Select 
+                value={filters.status} 
+                onValueChange={(value) => handleFilterChange('status', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="1">Paid</SelectItem>
+                  <SelectItem value="0">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {/* Payment Method Filter */}
+              <Select 
+                value={filters.payment_method} 
+                onValueChange={(value) => handleFilterChange('payment_method', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Payment Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Metode</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="debit">Debit</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {/* Date Range Filter */}
+              <Popover open={showDateFilter} onOpenChange={setShowDateFilter}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {formatDateRange()}
+                    {(filters.start_date || filters.end_date) && (
+                      <X 
+                        className="ml-2 h-4 w-4" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFilterChange('start_date', '');
+                          handleFilterChange('end_date', '');
+                        }}
+                      />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Dari Tanggal</label>
+                        <Input
+                          type="date"
+                          value={filters.start_date}
+                          onChange={(e) => handleFilterChange('start_date', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Sampai Tanggal</label>
+                        <Input
+                          type="date"
+                          value={filters.end_date}
+                          onChange={(e) => handleFilterChange('end_date', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button variant="outline" size="sm" onClick={() => setShowDateFilter(false)}>
+                        Tutup
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button onClick={handleApplyFilters} className="flex-1">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Terapkan
+                </Button>
+                <Button variant="outline" onClick={handleResetFilters}>
+                  Reset
+                </Button>
+              </div>
+            </div>
+            
+            {/* Active Filters Badge */}
+            {(filters.search || filters.status !== 'all' || filters.payment_method !== 'all' || filters.start_date || filters.end_date) && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <p className="text-sm text-muted-foreground mr-2">Filter aktif:</p>
+                {filters.search && (
+                  <Badge variant="secondary" className="gap-1">
+                    Pencarian: {filters.search}
+                    <button onClick={() => setSearchInput('')}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {filters.status !== 'all' && (
+                  <Badge variant="secondary" className="gap-1">
+                    Status: {filters.status === '1' ? 'Paid' : 'Cancelled'}
+                    <button onClick={() => handleFilterChange('status', 'all')}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {filters.payment_method !== 'all' && (
+                  <Badge variant="secondary" className="gap-1">
+                    Payment: {filters.payment_method === 'cash' ? 'Cash' : filters.payment_method === 'debit' ? 'Debit' : 'QRIS'}
+                    <button onClick={() => handleFilterChange('payment_method', 'all')}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {(filters.start_date || filters.end_date) && (
+                  <Badge variant="secondary" className="gap-1">
+                    {filters.start_date && filters.end_date 
+                      ? `Tanggal: ${formatDateRange()}`
+                      : filters.start_date 
+                      ? `Mulai: ${formatDate(filters.start_date)}`
+                      : `Sampai: ${formatDate(filters.end_date)}`}
+                    <button onClick={() => {
+                      handleFilterChange('start_date', '');
+                      handleFilterChange('end_date', '');
+                    }}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Summary Card - SEKARANG DI BAWAH FILTER */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -475,7 +678,7 @@ export default function SalesHistory({
           </Card>
         </div>
 
-        {/* Sales Table dengan Filter */}
+        {/* Sales Table */}
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -504,58 +707,6 @@ export default function SalesHistory({
                 </Select>
               </div>
             </div>
-            
-            {/* Filter sederhana */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari kode invoice atau nama..."
-                  className="pl-9"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-              </div>
-              
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => handleFilterChange('status', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="1">Paid</SelectItem>
-                  <SelectItem value="0">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select 
-                value={filters.payment_method} 
-                onValueChange={(value) => handleFilterChange('payment_method', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Payment Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Metode</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="debit">Debit</SelectItem>
-                  <SelectItem value="qris">QRIS</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={handleApplyFilters}>
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filter
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-                  Reset
-                </Button>
-              </div>
-            </div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -567,8 +718,6 @@ export default function SalesHistory({
                     <TableHead>Pelanggan</TableHead>
                     <TableHead>Barang</TableHead>
                     <TableHead>Payment Method</TableHead>
-                    <TableHead className="text-right">Subtotal</TableHead>
-                    <TableHead className="text-right">Diskon</TableHead>
                     <TableHead className="text-right">Grand Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
@@ -577,27 +726,25 @@ export default function SalesHistory({
                 <TableBody>
                   {loading ? (
                     // Loading skeleton
-                      Array.from({ length: parseInt(perPage) || 10 }).map((_, index) => (
-                        <TableRow key={index}>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-                        </TableRow>
-                      ))
-                    ) : !sales || !Array.isArray(sales) || sales.length === 0 ? (  // Perbaiki kondisi ini
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                          Tidak ada data transaksi
-                        </TableCell>
+                    Array.from({ length: parseInt(perPage) || 10 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                       </TableRow>
-                    ) : (
+                    ))
+                  ) : !sales || !Array.isArray(sales) || sales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Tidak ada data transaksi
+                      </TableCell>
+                    </TableRow>
+                  ) : (
                     sales.map((sale) => (
                       <TableRow key={sale.sales_invoice_code}>
                         <TableCell className="font-mono font-medium">
@@ -626,36 +773,25 @@ export default function SalesHistory({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          <div className="truncate" title={sale?.items?.map(item => item?.item_name).join(', ') || '-'}>
-                            {truncateItems(sale?.items)}
+                        <TableCell>
+                          <div 
+                            className="text-sm truncate max-w-[200px]" 
+                            title={sale?.items?.map(item => 
+                              `${item?.item_name || 'Unknown'} (${item?.sales_quantity || 0})`
+                            ).join(', ') || '-'}
+                          >
+                            {formatItemsDisplay(sale?.items, 2)}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {(sale?.items || []).reduce((total, item) => total + (item?.sales_quantity || 0), 0)} items
+                            Total: {(sale?.items || []).reduce((total, item) => total + (item?.sales_quantity || 0), 0)} items
                           </div>
                         </TableCell>
                         <TableCell>
                           {sale?.sales_payment_method ? getPaymentMethodBadge(sale.sales_payment_method) : '-'}
                         </TableCell>
-
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(sale?.sales_subtotal || 0)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-col items-end">
-                            <span className="text-red-600">
-                              -{formatCurrency(sale?.sales_hasil_discount_value || 0)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({sale?.sales_discount_value || 0}%)
-                            </span>
-                          </div>
-                        </TableCell>
-
                         <TableCell className="text-right font-bold">
                           {formatCurrency(sale?.sales_grand_total || 0)}
                         </TableCell>
-
                         <TableCell>
                           {sale?.sales_status !== undefined ? getStatusBadge(sale.sales_status) : '-'}
                         </TableCell>
@@ -670,7 +806,15 @@ export default function SalesHistory({
                               <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => viewSale(sale)}>
                                 <Eye className="mr-2 h-4 w-4" />
-                                Detail
+                                View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => viewSale(sale)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => viewSale(sale)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
                               </DropdownMenuItem>
                               {sale.sales_status && (
                                 <>

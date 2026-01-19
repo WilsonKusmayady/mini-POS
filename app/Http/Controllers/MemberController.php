@@ -119,6 +119,15 @@ class MemberController extends Controller
         try {
             $member = $this->memberService->createMember($request->all());
             
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'member' => $member,
+                    'message' => 'Member berhasil dibuat',
+                ]);
+            }
+
+            // ✅ RESPONSE UNTUK FORM BIASA
             return redirect()
                 ->route('members.index')
                 ->with('success', 'Member berhasil ditambahkan');

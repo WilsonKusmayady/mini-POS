@@ -213,9 +213,27 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
     e.preventDefault();
     
     // Validasi minimal 1 item
+     if (!data.customer_name.trim()) {
+      toast.error('Nama pelanggan harus diisi');
+      return;
+    }
+    
+    // Validasi minimal 1 item
     if (data.items.length === 0) {
       toast.error('Tambahkan minimal 1 item');
       return;
+    }
+
+    // Validasi setiap item
+    for (const item of data.items) {
+      if (!item.item_code) {
+        toast.error('Pilihlah suatu barang');
+        return;
+      }
+      if (item.quantity <= 0) {
+        toast.error('Jumlah barang harus lebih dari 0');
+        return;
+      }
     }
     
     // Prepare data for submission
@@ -308,11 +326,12 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                 <TabsContent value="non-member" className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Nama Pelanggan</Label>
+                      <Label>Nama Pelanggan *</Label>
                       <Input
                         placeholder="Nama pelanggan non-member"
                         value={data.customer_name}
                         onChange={(e) => setData('customer_name', e.target.value)}
+                        required
                       />
                     </div>
                     <div className="flex items-end space-y-2">
@@ -343,6 +362,7 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                                   member_name: e.target.value
                                 })}
                                 placeholder="Nama lengkap"
+                                required
                               />
                             </div>
                             
@@ -356,6 +376,7 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                                     phone_number: e.target.value
                                   })}
                                   placeholder="0812-3456-7890"
+                                  required
                                 />
                               </div>
                               <div className="space-y-2">
@@ -435,6 +456,7 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                       value={data.member_code}
                       onSelect={handleMemberSelect}
                       placeholder="Cari member dengan kode atau nama..."
+                      // Pastikan ini menggunakan API endpoint yang benar
                     />
                   </div>
                   

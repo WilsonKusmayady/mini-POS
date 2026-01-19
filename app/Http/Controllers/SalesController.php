@@ -58,6 +58,7 @@ class SalesController extends Controller
         }
     }
 
+    
     /**
      * API: Get paginated sales for AJAX requests
      */
@@ -89,6 +90,63 @@ class SalesController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to fetch sales: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        // Validasi data
+        $validator = Validator::make($request->all(), [
+            'sales_date' => 'required|date',
+            'sales_payment_method' => 'required|in:cash,debit,qris',
+            'sales_discount_value' => 'nullable|numeric|min:0|max:100',
+            'member_code' => 'nullable|string|exists:members,member_code',
+            'customer_name' => 'nullable|string|max:255',
+            'items' => 'required|array|min:1',
+            'items.*.item_code' => 'required|string|exists:items,item_code',
+            'items.*.sales_quantity' => 'required|integer|min:1',
+            'items.*.sell_price' => 'required|numeric|min:0',
+            'items.*.sales_discount_item' => 'nullable|numeric|min:0|max:100',
+            'items.*.sales_hasil_diskon_item' => 'nullable|numeric|min:0',
+            'items.*.total_item_price' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Persiapkan data untuk service
+            $saleData = [
+                'sales_date' => $request->sales_date,
+                'payment_method' => $request->sales_payment_method,
+                'discount_percentage' => $request->sales_discount_value ?? 0,
+                'member_code' => $request->member_code,
+                'customer_name' => $request->customer_name,
+                'items' => $request->items,
+                'sales_subtotal' => $request->sales_subtotal,
+                'sales_hasil_discount_value' => $request->sales_hasil_discount_value,
+                'sales_grand_total' => $request->sales_grand_total,
+            ];
+
+            // Panggil service untuk membuat transaksi
+            $sale = $this->saleService->createSale($saleData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil disimpan',
+                'sale' => $sale
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan transaksi: ' . $e->getMessage()
             ], 500);
         }
     }

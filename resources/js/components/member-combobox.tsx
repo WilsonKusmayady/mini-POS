@@ -50,7 +50,7 @@ export function MemberCombobox({
     const [hasMore, setHasMore] = useState(true);
 
     const [selectedMemberCache, setSelectedMemberCache] = useState<Member | null>(null);
-
+    
     // Fetch members from API
     // Ganti fungsi fetchMembers menjadi:
     const fetchMembers = async (pageParam: number, searchParam: string, reset = false) => {
@@ -58,7 +58,7 @@ export function MemberCombobox({
             setLoading(true);
             console.log('Fetching members with params:', { page: pageParam, search: searchParam });
             
-            const res = await axios.get('/members/search', {
+            const res = await axios.get('/api/members/search', {
                 params: {
                     page: pageParam,
                     search: searchParam, // Parameter sesuai dengan controller

@@ -8,6 +8,24 @@ class ItemRepository implements ItemRepositoryInterface {
         return Item::orderby('item_name', 'asc')->get();
     }
 
+    public function getItemStock(string $itemCode)
+    {
+        $item = Item::where('item_code', $itemCode)->first();
+        return $item ? $item->item_stock : 0;
+    }
+
+    public function decreaseStock(string $itemCode, int $quantity): bool
+    {
+        return Item::where('item_code', $itemCode)
+            ->decrement('item_stock', $quantity);
+    }
+
+    public function increaseStock(string $itemCode, int $quantity): bool
+    {
+        return Item::where('item_code', $itemCode)
+            ->increment('item_stock', $quantity);
+    }
+
     public function findByCode($code) {
         return Item::where('item_code', $code)->first();
     }

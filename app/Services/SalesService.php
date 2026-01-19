@@ -6,6 +6,7 @@ use App\Repositories\Contracts\SaleRepositoryInterface;
 use App\Repositories\Contracts\ItemRepositoryInterface;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\Sales;
 
 class SalesService
 {
@@ -37,7 +38,15 @@ class SalesService
     public function getAllSalesPaginated(array $filters = [], int $perPage = 10, int $page = 1)
     {
         $validatedFilters = $this->validateFilters($filters);
-        return $this->saleRepository->getAllSalesPaginated($perPage, $validatedFilters, $page);
+
+        $paginated = $this->saleRepository
+            ->getAllSalesPaginated($perPage, $validatedFilters, $page);
+
+        $paginated->getCollection()->transform(function ($sale) {
+            return $this->formatSaleList($sale);
+        });
+
+        return $paginated;
     }
 
     /**
@@ -55,8 +64,8 @@ class SalesService
     }
 
     /**
-     * Create new sale transaction
-     */
+    * Create new sale transaction
+    */
     public function createSale(array $data)
     {
         // Business logic validation
@@ -65,20 +74,17 @@ class SalesService
         // Generate invoice code
         $invoiceCode = $this->generateInvoiceCode();
         
-        // Calculate totals
-        $calculatedData = $this->calculateSaleTotals($data);
-        
-        // Create sale record
+        // Calculate totals (gunakan dari data yang sudah dihitung di frontend)
         $saleData = [
             'sales_invoice_code' => $invoiceCode,
             'user_id' => auth()->id(),
             'member_code' => $data['member_code'] ?? null,
             'customer_name' => $data['customer_name'] ?? null,
-            'sales_date' => Carbon::now()->toDateString(),
-            'sales_subtotal' => $calculatedData['subtotal'],
+            'sales_date' => $data['sales_date'] ?? Carbon::now()->toDateString(),
+            'sales_subtotal' => $data['sales_subtotal'] ?? 0,
             'sales_discount_value' => $data['discount_percentage'] ?? 0,
-            'sales_hasil_discount_value' => $calculatedData['discount_amount'],
-            'sales_grand_total' => $calculatedData['grand_total'],
+            'sales_hasil_discount_value' => $data['sales_hasil_discount_value'] ?? 0,
+            'sales_grand_total' => $data['sales_grand_total'] ?? 0,
             'sales_payment_method' => $data['payment_method'],
             'sales_status' => 1, // Default to paid
         ];
@@ -96,19 +102,20 @@ class SalesService
                 $detailData = [
                     'sales_invoice_code' => $invoiceCode,
                     'item_code' => $item['item_code'],
-                    'sales_quantity' => $item['quantity'],
-                    'sell_price' => $item['sell_price'],
-                    'sales_discount_item' => $item['item_discount'] ?? 0,
-                    'sales_hasil_diskon_item' => $this->calculateItemDiscount($item),
-                    'total_item_price' => $this->calculateItemTotal($item),
+                    'sales_quantity' => (int) $item['sales_quantity'],
+                    'sell_price' => (float) $item['sell_price'],
+                    'sales_discount_item' => $item['sales_discount_item'] ?? 0,
+                    'sales_hasil_diskon_item' => $item['sales_hasil_diskon_item'] ?? 0,
+                    'total_item_price' => (float) $item['total_item_price'],
                 ];
+
 
                 $this->saleRepository->createDetail($detailData);
                 
                 // Update item stock
                 $this->itemRepository->decreaseStock(
                     $item['item_code'], 
-                    $item['quantity']
+                    $item['sales_quantity']
                 );
             }
             
@@ -264,7 +271,10 @@ class SalesService
                 throw new \Exception('Item code is required');
             }
             
-            if (empty($item['quantity']) || $item['quantity'] <= 0) {
+            if (
+                !isset($item['sales_quantity']) ||
+                $item['sales_quantity'] <= 0
+            ) {
                 throw new \Exception('Item quantity must be greater than 0');
             }
             
@@ -281,7 +291,7 @@ class SalesService
     {
         $availableStock = $this->itemRepository->getItemStock($item['item_code']);
         
-        if ($availableStock < $item['quantity']) {
+        if ($availableStock < $item['sales_quantity']) {
             throw new \Exception("Insufficient stock for item: {$item['item_code']}");
         }
     }
@@ -363,4 +373,34 @@ class SalesService
             ] : null,
         ];
     }
+
+    private function formatSaleList($sale): array
+    {
+        return [
+            'sales_invoice_code' => $sale->sales_invoice_code,
+            'customer_name' => $sale->customer_name,
+            'member_code' => $sale->member_code,
+            'sales_date' => $sale->sales_date,
+            'sales_subtotal' => (float) $sale->sales_subtotal, // TAMBAHKAN
+            'sales_discount_value' => (float) $sale->sales_discount_value, // TAMBAHKAN
+            'sales_hasil_discount_value' => (float) $sale->sales_hasil_discount_value, // TAMBAHKAN
+            'sales_grand_total' => (float) $sale->sales_grand_total,
+            'sales_payment_method' => $sale->sales_payment_method,
+            'sales_status' => (bool) $sale->sales_status,
+            'user_id' => $sale->user_id, // TAMBAHKAN jika perlu
+            'created_at' => $sale->created_at,
+            'items' => $sale->sales_details->map(function ($detail) {
+                return [
+                    'item_code' => $detail->item_code,
+                    'item_name' => $detail->item->item_name ?? 'Unknown',
+                    'sales_quantity' => $detail->sales_quantity,
+                    'sell_price' => (float) $detail->sell_price, // TAMBAHKAN
+                    'sales_discount_item' => (float) $detail->sales_discount_item, // TAMBAHKAN
+                    'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item, // TAMBAHKAN
+                    'total_item_price' => (float) $detail->total_item_price, // TAMBAHKAN
+                ];
+            })->toArray(),
+        ];
+    }
+
 }
