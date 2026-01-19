@@ -53,55 +53,61 @@ export function ItemCombobox({
     const fetchItems = async (pageParam: number, searchParam: string, reset = false) => {
         try {
             setLoading(true);
-
-            const res = await axios.get('/items/search', {
-            params: {
-                page: pageParam,
-                q: searchParam
-            }
+                const res = await axios.get('/items/search', {
+                params: {
+                    page: pageParam,
+                    q: searchParam
+                }
             });
 
             let newItems: Item[] = [];
 
             if (Array.isArray(res.data?.data)) {
-            newItems = res.data.data;
-            setHasMore(!!res.data.next_page_url);
-            } else if (Array.isArray(res.data)) {
-            newItems = res.data;
-            setHasMore(false);
-            } else {
-            newItems = [];
-            setHasMore(false);
+                newItems = res.data.data;
+                setHasMore(!!res.data.next_page_url);
+            }
+            else if (Array.isArray(res.data)) {
+                newItems = res.data;
+                setHasMore(false);
+            }
+            else {
+                newItems = [];
+                setHasMore(false);
             }
 
             setItems(prev => reset ? newItems : [...prev, ...newItems]);
+            setLoading(false);
         } catch (error) {
             console.error("Gagal load item", error);
-        } finally {
-            setLoading(false); // 🔥 WAJIB
+            setLoading(false);
         }
     };
 
     useEffect(() => {
         if (!open) return;
 
-        const timeout = setTimeout(() => {
+        // Tambahan biar lansung memunculkan data (belum fix)
+        if (search.trim() === '') { 
+            setPage(1);
+            fetchItems(1, '', true);
+            return
+        }
+
+        const timeoutId = setTimeout(() => {
             setPage(1);
             fetchItems(1, search, true);
-        }, 300);
-
-        return () => clearTimeout(timeout);
+        }, 50); // Debounce 50ms biar tidak smooth loading nya (belum fix)
+        return () => clearTimeout(timeoutId);
     }, [search, open]);
 
     // Infinite scroll 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-
         if (scrollHeight - scrollTop <= clientHeight + 50) {
             if (!loading && hasMore) {
-            const nextPage = page + 1;
-            setPage(nextPage);
-            fetchItems(nextPage, search, false);
+                const nextPage = page + 1;
+                setPage(nextPage);
+                fetchItems(nextPage, search, false);
             }
         }
     };
@@ -143,8 +149,7 @@ export function ItemCombobox({
                                     value={item.item_code} 
                                     onSelect={() => {
                                         onSelect(item);
-                                        setSelectedItemCache(item);
-                                         
+                                        setSelectedItemCache(item); 
                                     }}
                                 >
                                     <Check
