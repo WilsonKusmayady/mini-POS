@@ -33,6 +33,9 @@ Route::middleware('auth')->group(function () {
     // --- Auth Actions ---
     Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
+    // --- 0. User Profile ---
+    Route::resource('users', UserController::class);
+
     // --- 1. Master Data: ITEMS (Inventory) ---
     // PENTING: Route khusus seperti 'search' harus DI ATAS 'resource'
     Route::get('/items/search', [ItemController::class, 'search'])->name('items.search');

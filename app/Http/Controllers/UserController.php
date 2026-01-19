@@ -7,6 +7,9 @@ use App\Services\UserService;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use Exception;
 
 
 class UserController extends Controller
@@ -21,7 +24,8 @@ class UserController extends Controller
      */
     public function index()
     {
-        return Inertia::render('Users/Index', ['users' => $this->userService->getAllUsers()]);
+        $users = $this->userService->getAllUsers();
+        return Inertia::render('Users/Index', ['users' => $users]);
     }
 
     /**
@@ -38,7 +42,7 @@ class UserController extends Controller
     public function store(StoreUserRequest $request)
     {
         $this->userService->createUser($request->validated());
-        return redirect()->back()->with('success', 'User berhasil ditambahkan');
+        return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan');
     }
 
     /**
@@ -63,7 +67,7 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, $id)
     {
         $this->userService->updateUser($id, $request->validated());
-        return redirect()->back()->with('success', 'User berhasil diperbaharui');
+        return redirect()->route('users.index')->with('success', 'User berhasil diperbaharui');
     }
 
     /**
@@ -73,7 +77,7 @@ class UserController extends Controller
     {
         try {
             $this->userService->deleteUser($id);
-            return redirect()->back()->with('success', 'User berhasil dihapus.');
+            return redirect()->route('users.index')->with('success', 'User berhasil dihapus.');
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
