@@ -76,6 +76,7 @@ export function ItemCombobox({
             }
 
             setItems(prev => reset ? newItems : [...prev, ...newItems]);
+            setLoading(false);
         } catch (error) {
             console.error("Gagal load item", error);
             setLoading(false);
