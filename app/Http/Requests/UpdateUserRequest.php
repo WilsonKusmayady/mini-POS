@@ -19,13 +19,7 @@ class UpdateUserRequest extends FormRequest
         $userId = $this->route('user'); 
 
         return [
-            'name' => 'required|string|max:255',
-            // Cek unik email, KECUALI milik user ini sendiri
-            'email' => [
-                'required',
-                'email',
-                Rule::unique('users', 'email')->ignore($userId, 'user_id') 
-            ],
+            'user_name' => 'required|string|max:255',
             // Password boleh kosong saat edit (artinya tidak ganti password)
             'password' => 'nullable|string|min:8|confirmed',
             'user_role' => 'required|boolean',

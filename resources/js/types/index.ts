@@ -42,21 +42,31 @@ export interface SharedData {
     flash: {
         success: string | null;
         error: string | null;
-    };
+    }
     [key: string]: unknown;
 }
 
 export interface User {
-    id: number;
-    name: string;
+    user_id: number;       
+    user_name: string;     
     email: string;
-    avatar?: string;
+    user_role: number | boolean; 
     email_verified_at: string | null;
-    two_factor_enabled?: boolean;
+    avatar?: string;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
 }
+
+export type PageProps<T extends Record<string, unknown> = Record<string, unknown>> = T & {
+    auth: Auth;
+    flash: {
+        success: string | null;
+        error: string | null;
+        warning?: string | null;
+        info?: string | null;
+    };
+};
 
 export function isNavGroupItem(item: NavItem): item is NavGroup {
     return !!(item.items && item.items.length > 0);

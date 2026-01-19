@@ -2,90 +2,81 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Laravel\Fortify\Features;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\SalesController;
-use App\Http\Controllers\ItemController;      
-use App\Http\Controllers\PurchaseController;  
-use App\Http\Controllers\MemberController; 
-
-
-// Route::get('/', function () {
-//     return Inertia::render('dashboard');
-// })->name('dashboard');
-
-// Route::get('/login-karyawan', function () {
-//     return Inertia::render('auth/login'); 
-// })->name('login.temp');
+use App\Http\Controllers\ItemController;
+use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\MemberController;
 
 /*
 |--------------------------------------------------------------------------
-| GUEST ROUTES 
+| GUEST ROUTES (Login)
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
-    Route::get('/login-karyawan', [UserController::class, 'showLogin'])
-        ->name('login');
-
-    Route::post('/login-karyawan', [UserController::class, 'login'])
-        ->name('login.process');
+    Route::get('/login-karyawan', [UserController::class, 'showLogin'])->name('login');
+    Route::post('/login-karyawan', [UserController::class, 'login'])->name('login.process');
 });
 
+/*
+|--------------------------------------------------------------------------
+| AUTHENTICATED ROUTES
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
 
+    // --- Dashboard ---
     Route::get('/', function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
 
-    Route::get('/sales', [SalesController::class, 'index'])
-        ->name('sales.index');
-    Route::get('/sales/create', function () {
-        return Inertia::render('sales/create');
-    })->name('sales.create');
-    Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
+    // --- Auth Actions ---
+    Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
+    // --- 0. User Profile ---
+    Route::resource('users', UserController::class);
 
-    Route::post('/logout', [UserController::class, 'logout'])
-        ->name('logout');
+    // --- 1. Master Data: ITEMS (Inventory) ---
+    // PENTING: Route khusus seperti 'search' harus DI ATAS 'resource'
+    Route::get('/items/search', [ItemController::class, 'search'])->name('items.search');
     Route::resource('items', ItemController::class);
-    Route::get('/purchase/create', [PurchaseController::class, 'create'])->name('purchase.create');
-    Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
 
-    Route::get('/members/search', [MemberController::class, 'search'])->name('members.search');
-    Route::get('/members', [MemberController::class, 'index'])->name('members.index');
-    Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
-    Route::post('/members', [MemberController::class, 'store'])->name('members.store');
-    Route::get('/members/{memberCode}', [MemberController::class, 'show'])->name('members.show');
-    Route::get('/members/{memberCode}/edit', [MemberController::class, 'edit'])->name('members.edit');
-    Route::put('/members/{memberCode}', [MemberController::class, 'update'])->name('members.update');
-    
+    // --- 2. Master Data: MEMBERS ---
+    Route::prefix('members')->name('members.')->group(function () {
+        Route::get('/', [MemberController::class, 'index'])->name('index');
+        Route::get('/create', [MemberController::class, 'create'])->name('create');
+        Route::post('/', [MemberController::class, 'store'])->name('store');
+        Route::get('/{memberCode}', [MemberController::class, 'show'])->name('show');
+        Route::get('/{memberCode}/edit', [MemberController::class, 'edit'])->name('edit');
+        Route::put('/{memberCode}', [MemberController::class, 'update'])->name('update');
+        // Note: Destroy member ada di group API di bawah
+    });
 
-    // API routes for AJAX - harus didefinisikan terpisah
+    // --- 3. Transaksi: PURCHASES (Pembelian) ---
+    Route::prefix('purchases')->name('purchases.')->group(function () {
+        Route::get('/', [PurchaseController::class, 'index'])->name('index');
+        Route::get('/create', [PurchaseController::class, 'create'])->name('create');
+        Route::post('/', [PurchaseController::class, 'store'])->name('store');
+        Route::get('/{id}', [PurchaseController::class, 'show'])->name('show');
+    });
+
+    // --- 4. Transaksi: SALES (Penjualan) ---
+    Route::prefix('sales')->name('sales.')->group(function () {
+        Route::get('/', [SalesController::class, 'index'])->name('index');
+        Route::get('/create', function () {
+            return Inertia::render('sales/create');
+        })->name('create');
+    });
+
+    // --- INTERNAL API ROUTES (AJAX Helper) ---
     Route::prefix('api')->group(function () {
+        // Members API
         Route::get('/members', [MemberController::class, 'apiIndex'])->name('members.api.index');
         Route::delete('/members/{memberCode}', [MemberController::class, 'destroy'])->name('members.api.destroy');
-        Route::get('/members/statistics', [MemberController::class, 'getStatistics'])->name('members.api.statistics');    
+        Route::get('/members/statistics', [MemberController::class, 'getStatistics'])->name('members.api.statistics');
+        
+        // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
     });
 
-     Route::get('/items/search', [ItemController::class, 'search'])
-        ->name('items.search');
-
-    // 3. Inventory (Items) - Resource Route (CRUD Lengkap)
-    Route::resource('items', ItemController::class);
-
-    // 4. Purchase (Transaksi Pembelian)
-    Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
-    Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
-    Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
-    Route::get('/purchases/{id}', [PurchaseController::class, 'show'])->name('purchases.show');
 });
-// Route::middleware(['auth', 'verified'])->group(function () {
-//     Route::get('dashboard', function () {
-//         return Inertia::render('dashboard');
-//     })->name('dashboard');
-// });
-
-    // --- ROUTE API SEARCH ---
-
-
