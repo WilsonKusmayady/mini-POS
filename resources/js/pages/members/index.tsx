@@ -3,13 +3,13 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical,ChevronLeft,ChevronRight, X } from 'lucide-react';
-import {Card,CardContent,CardDescription,CardHeader,CardTitle,} from '@/components/ui/card';
-import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow,} from '@/components/ui/table';
+import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -19,6 +19,10 @@ import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
 import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
 import { membersFilterSchema, convertMembersFiltersToParams } from '@/filter-schemas/members.schema';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -64,6 +68,14 @@ interface PaginationData {
     total: number;
 }
 
+interface NewMemberData {
+    member_name: string;
+    phone_number: string;
+    address: string;
+    gender: '1' | '0';
+    birth_date: string;
+}
+
 export default function MembersIndex() {
     const [members, setMembers] = useState<Member[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);
@@ -76,6 +88,17 @@ export default function MembersIndex() {
     // State untuk filter
     const [activeFilters, setActiveFilters] = useState<FilterParams>({});
     const [filterModalOpen, setFilterModalOpen] = useState(false);
+    
+    // State untuk modal tambah member
+    const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+    const [newMemberData, setNewMemberData] = useState<NewMemberData>({
+        member_name: '',
+        phone_number: '',
+        address: '',
+        gender: '1',
+        birth_date: ''
+    });
+    const [isCreatingMember, setIsCreatingMember] = useState(false);
     
     const { openModal: openViewModal, Modal: ViewModalComponent } = useViewModal();
 
@@ -206,6 +229,50 @@ export default function MembersIndex() {
         } catch (error: any) {
             const message = error.response?.data?.message || 'Gagal menghapus member';
             toast.error(message);
+        }
+    };
+
+    // Handle tambah member baru
+    const handleAddMember = async () => {
+        // Validasi
+        if (!newMemberData.member_name.trim()) {
+            toast.error('Nama member harus diisi');
+            return;
+        }
+
+        if (!newMemberData.phone_number.trim()) {
+            toast.error('Nomor telepon harus diisi');
+            return;
+        }
+
+        setIsCreatingMember(true);
+        try {
+            const response = await axios.post(appRoutes.members.store(), newMemberData);
+            
+            if (response.data.success) {
+                toast.success('Member berhasil ditambahkan');
+                setIsAddMemberDialogOpen(false);
+                
+                // Reset form
+                setNewMemberData({
+                    member_name: '',
+                    phone_number: '',
+                    address: '',
+                    gender: '1',
+                    birth_date: ''
+                });
+                
+                // Refresh data members
+                fetchMembers();
+            } else {
+                toast.error(response.data.message || 'Gagal menambahkan member');
+            }
+        } catch (error: any) {
+            console.error('Error adding member:', error);
+            const message = error.response?.data?.message || 'Terjadi kesalahan saat menambahkan member';
+            toast.error(message);
+        } finally {
+            setIsCreatingMember(false);
         }
     };
 
@@ -345,20 +412,6 @@ export default function MembersIndex() {
         return count;
     };
 
-    // Get display name untuk filter key
-    const getFilterDisplayKey = (key: string): string => {
-        switch (key) {
-            case 'gender':
-                return 'Gender';
-            case 'birth_date_start':
-                return 'Lahir (Dari)';
-            case 'birth_date_end':
-                return 'Lahir (Sampai)';
-            default:
-                return key;
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Membership" />
@@ -378,11 +431,9 @@ export default function MembersIndex() {
                             <Download className="mr-2 h-4 w-4" />
                             Export
                         </Button>
-                        <Button asChild>
-                            <Link href={appRoutes.members.create()}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Tambah Member
-                            </Link>
+                        <Button onClick={() => setIsAddMemberDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Tambah Member
                         </Button>
                     </div>
                 </div>
@@ -723,6 +774,122 @@ export default function MembersIndex() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Modal Tambah Member */}
+            <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Tambah Member Baru</DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="member_name">Nama Member *</Label>
+                            <Input
+                                id="member_name"
+                                value={newMemberData.member_name}
+                                onChange={(e) => setNewMemberData({
+                                    ...newMemberData,
+                                    member_name: e.target.value
+                                })}
+                                placeholder="Nama lengkap"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="phone_number">Nomor Telepon *</Label>
+                                <Input
+                                    id="phone_number"
+                                    value={newMemberData.phone_number}
+                                    onChange={(e) => setNewMemberData({
+                                        ...newMemberData,
+                                        phone_number: e.target.value
+                                    })}
+                                    placeholder="0812-3456-7890"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="birth_date">Tanggal Lahir</Label>
+                                <Input
+                                    id="birth_date"
+                                    type="date"
+                                    value={newMemberData.birth_date}
+                                    onChange={(e) => setNewMemberData({
+                                        ...newMemberData,
+                                        birth_date: e.target.value
+                                    })}
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label>Jenis Kelamin</Label>
+                            <RadioGroup
+                                value={newMemberData.gender}
+                                onValueChange={(value) => setNewMemberData({
+                                    ...newMemberData,
+                                    gender: value as '1' | '0'
+                                })}
+                                className="flex space-x-4"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="1" id="male" />
+                                    <Label htmlFor="male">Laki-laki</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="0" id="female" />
+                                    <Label htmlFor="female">Perempuan</Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="address">Alamat</Label>
+                            <Textarea
+                                id="address"
+                                value={newMemberData.address}
+                                onChange={(e) => setNewMemberData({
+                                    ...newMemberData,
+                                    address: e.target.value
+                                })}
+                                placeholder="Alamat lengkap"
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setIsAddMemberDialogOpen(false);
+                                // Reset form
+                                setNewMemberData({
+                                    member_name: '',
+                                    phone_number: '',
+                                    address: '',
+                                    gender: '1',
+                                    birth_date: ''
+                                });
+                            }}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleAddMember}
+                            disabled={isCreatingMember || !newMemberData.member_name || !newMemberData.phone_number}
+                        >
+                            {isCreatingMember ? 'Menyimpan...' : 'Simpan Member'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <ViewModalComponent />
         </AppLayout>
     );

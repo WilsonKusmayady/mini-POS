@@ -8,16 +8,15 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-
-import { Check, ChevronsUpDown, Loader2} from 'lucide-react';
+import { Check, ChevronsUpDown, Loader2, AlertCircle } from 'lucide-react'; // Tambah AlertCircle
 import { cn } from "@/lib/utils";
 import axios from 'axios';
+import { Badge } from "@/components/ui/badge"; // Tambah Badge
 
 export interface Item {
     item_code: string;
@@ -32,6 +31,7 @@ interface ItemCombobox {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
+    disabledItems?: string[]; // Item yang sudah dipilih di row lain
 }
 
 export function ItemCombobox({
@@ -39,7 +39,8 @@ export function ItemCombobox({
     onSelect,
     placeholder = "Pilih Item...",
     className,
-    disabled = false
+    disabled = false,
+    disabledItems = [] // Item yang sudah dipilih di row lain
 }: ItemCombobox) {
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState<Item[]>([]);
@@ -53,7 +54,7 @@ export function ItemCombobox({
     const fetchItems = async (pageParam: number, searchParam: string, reset = false) => {
         try {
             setLoading(true);
-                const res = await axios.get('/items/search', {
+            const res = await axios.get('/items/search', {
                 params: {
                     page: pageParam,
                     q: searchParam
@@ -117,6 +118,30 @@ export function ItemCombobox({
     || selectedItemCache?.item_name
     || (value ? `Item ${value}` : placeholder);
 
+    // Fungsi untuk mengecek apakah item disabled
+    const isItemDisabled = (item: Item): boolean => {
+        // 1. Cek jika stok 0 atau kurang
+        if (item.item_stock <= 0) return true;
+        
+        // 2. Cek jika item sudah dipilih di row lain (kecuali row ini sendiri)
+        if (disabledItems.includes(item.item_code) && item.item_code !== value) return true;
+        
+        return false;
+    };
+
+    // Fungsi untuk mendapatkan status stok
+    const getStockStatus = (item: Item): { text: string, variant: "default" | "secondary" | "destructive" | "outline" } => {
+        if (item.item_stock <= 0) {
+            return { text: "Stok Habis", variant: "destructive" as const };
+        } else if (item.item_stock < 10) {
+            return { text: `Stok: ${item.item_stock}`, variant: "destructive" as const };
+        } else if (item.item_stock < 20) {
+            return { text: `Stok: ${item.item_stock}`, variant: "default" as const };
+        } else {
+            return { text: `Stok: ${item.item_stock}`, variant: "secondary" as const };
+        }
+    };
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -131,41 +156,75 @@ export function ItemCombobox({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
+            <PopoverContent className="w-[350px] p-0" align="start">
                 <Command shouldFilter={false}> 
                     <CommandInput 
                         placeholder="Cari kode atau nama..." 
                         value={search}
                         onValueChange={setSearch}
                     />
-                    <CommandList onScroll={handleScroll} className="max-h-[250px] overflow-y-auto">
+                    <CommandList onScroll={handleScroll} className="max-h-[300px] overflow-y-auto">
                         {items.length === 0 && !loading && (
                             <CommandEmpty>Item tidak ditemukan.</CommandEmpty>
                         )}
                         <CommandGroup>
-                            {items.map((item) => (
-                                <CommandItem
-                                    key={item.item_code}
-                                    value={item.item_code} 
-                                    onSelect={() => {
-                                        onSelect(item);
-                                        setSelectedItemCache(item); 
-                                    }}
-                                >
-                                    <Check
+                            {items.map((item) => {
+                                const itemDisabled = isItemDisabled(item);
+                                const stockStatus = getStockStatus(item);
+                                
+                                return (
+                                    <CommandItem
+                                        key={item.item_code}
+                                        value={item.item_code} 
+                                        onSelect={() => {
+                                            if (!itemDisabled) {
+                                                onSelect(item);
+                                                setSelectedItemCache(item); 
+                                                setOpen(false);
+                                            }
+                                        }}
+                                        disabled={itemDisabled}
                                         className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === item.item_code ? "opacity-100" : "opacity-0"
+                                            "relative",
+                                            itemDisabled && "opacity-60 cursor-not-allowed"
                                         )}
-                                    />
-                                    <div className="flex flex-col">
-                                        <span>{item.item_name}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                            Stok: {item.item_stock} | Kode: {item.item_code}
-                                        </span>
-                                    </div>
-                                </CommandItem>
-                            ))}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                value === item.item_code ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        <div className="flex flex-col flex-1">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <span className="font-medium">{item.item_name}</span>
+                                                    <span className="text-xs text-muted-foreground block">
+                                                        Kode: {item.item_code}
+                                                    </span>
+                                                </div>
+                                                <Badge 
+                                                    variant={stockStatus.variant} 
+                                                    className="text-xs ml-2"
+                                                >
+                                                    {stockStatus.text}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                                <span className="text-sm text-primary font-medium">
+                                                    Rp {item.item_price.toLocaleString('id-ID')}
+                                                </span>
+                                                {itemDisabled && item.item_code !== value && (
+                                                    <span className="text-xs text-muted-foreground flex items-center">
+                                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                                        {item.item_stock <= 0 ? "Stok habis" : "Sudah dipilih"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </CommandItem>
+                                );
+                            })}
                             {loading && (
                                 <div className="p-2 flex justify-center items-center text-sm text-muted-foreground">
                                     <Loader2 className="h-4 w-4 animate-spin mr-2"/> Memuat...

@@ -4,6 +4,8 @@ namespace App\Repositories;
 
 use App\Repositories\Contracts\DashboardRepositoryInterface;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
 
 class DashboardRepository implements DashboardRepositoryInterface
 {
@@ -135,6 +137,159 @@ class DashboardRepository implements DashboardRepositoryInterface
                 'error' => $e->getMessage()
             ]);
             return [];
+        }
+    }
+
+    /**
+     * Get recent transactions (real-time, based on creation time)
+     */
+    public function getRecentTransactions(int $limit = 2): array
+    {
+        try {
+            return DB::table('sales')
+                ->select('sales_invoice_code', 'sales_grand_total', 'sales_status', 'sales_date', 'created_at')
+                ->orderBy('created_at', 'desc') // Urutkan berdasarkan waktu pembuatan, bukan sales_date
+                ->limit($limit)
+                ->get()
+                ->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error in getRecentTransactions', [
+                'limit' => $limit,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Get system activities (optional - bisa dari audit log atau activity log)
+     */
+    public function getRecentSystemActivities(int $limit = 2): array
+    {
+        try {
+            // Cek apakah ada tabel audit_logs atau activity_logs
+            if (DB::getSchemaBuilder()->hasTable('audit_logs')) {
+                return DB::table('audit_logs')
+                    ->select('id', 'action as title', 'description', 'created_at')
+                    ->where('user_type', '!=', 'member') // Jangan tampilkan aktivitas member
+                    ->orderBy('created_at', 'desc')
+                    ->limit($limit)
+                    ->get()
+                    ->toArray();
+            } elseif (DB::getSchemaBuilder()->hasTable('activity_logs')) {
+                return DB::table('activity_logs')
+                    ->select('id', 'log_name as title', 'description', 'created_at')
+                    ->where('log_name', '!=', 'member') // Jangan tampilkan aktivitas member
+                    ->orderBy('created_at', 'desc')
+                    ->limit($limit)
+                    ->get()
+                    ->toArray();
+            }
+            
+            return [];
+        } catch (\Exception $e) {
+            \Log::error('Error in getRecentSystemActivities', [
+                'limit' => $limit,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Get recent members
+     */
+    public function getRecentMembers(int $limit = 1): array
+    {
+        try {
+            return DB::table('members')
+                ->select('member_code', 'member_name', 'created_at')
+                ->orderBy('created_at', 'desc') // Sudah benar
+                ->limit($limit)
+                ->get()
+                ->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error in getRecentMembers', [
+                'limit' => $limit,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+    * Get recent stock updates from items table
+    */
+    public function getRecentStockUpdates(int $limit = 1): array
+    {
+        try {
+            // Ambil dari tabel items yang baru diupdate (asumsi ada perubahan stok)
+            // Cari items dengan updated_at terbaru
+            $results = DB::table('items')
+                ->select('item_code', 'item_name', DB::raw('0 as stock_change'), 'updated_at as created_at')
+                ->where('updated_at', '>=', now()->subDays(1)) // 1 hari terakhir saja
+                ->orderBy('updated_at', 'desc')
+                ->limit($limit)
+                ->get()
+                ->toArray();
+            
+            \Log::info('Stock updates from items table:', [
+                'count' => count($results),
+                'results' => array_map(function($item) {
+                    return [
+                        'item_code' => $item->item_code,
+                        'item_name' => $item->item_name,
+                        'created_at' => $item->created_at
+                    ];
+                }, $results)
+            ]);
+            
+            if (!empty($results)) {
+                // Tambahkan stock_change dummy atau dari perhitungan jika memungkinkan
+                foreach ($results as $result) {
+                    // Jika Anda punya cara menghitung perubahan stok, tambahkan di sini
+                    // Misalnya: bandingkan dengan data sebelumnya atau gunakan nilai default
+                    $result->stock_change = 10; // Nilai default untuk testing
+                }
+                return $results;
+            }
+            
+            // Jika tidak ada item yang diupdate dalam 1 hari terakhir
+            // Coba ambil item terbaru yang dibuat
+            $results = DB::table('items')
+                ->select('item_code', 'item_name', DB::raw('10 as stock_change'), 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get()
+                ->toArray();
+            
+            if (!empty($results)) {
+                return $results;
+            }
+            
+            // Fallback ke dummy data
+            return [
+                (object) [
+                    'item_code' => 'BRG001',
+                    'item_name' => 'Kopi Arabica',
+                    'stock_change' => 50,
+                    'created_at' => now()
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in getRecentStockUpdates: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                (object) [
+                    'item_code' => 'BRG001',
+                    'item_name' => 'Kopi Arabica',
+                    'stock_change' => 50,
+                    'created_at' => now()
+                ]
+            ];
         }
     }
 }

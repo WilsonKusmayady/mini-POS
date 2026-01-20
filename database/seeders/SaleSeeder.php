@@ -23,16 +23,21 @@ class SaleSeeder extends Seeder
             return;
         }
 
-        // Jumlah data dummy
-        $totalSales = 20;
+        // TOTAL TRANSAKSI (6 bulan)
+        $totalSales = 300;
 
         for ($i = 0; $i < $totalSales; $i++) {
 
             $subtotal = rand(50_000, 500_000);
-            $discount = rand(0, 20) > 15 ? rand(5_000, 50_000) : 0;
-            $grandTotal = $subtotal - $discount;
+            $discount = rand(0, 10) > 7 ? rand(5_000, 50_000) : 0;
+            $grandTotal = max($subtotal - $discount, 0);
 
             $isMember = !empty($members) && rand(0, 1);
+
+            // TANGGAL ACAK 0–180 HARI KE BELAKANG
+            $salesDate = Carbon::now()
+                ->subDays(rand(0, 180))
+                ->setTime(rand(8, 21), rand(0, 59));
 
             Sales::create([
                 'sales_invoice_code' => $codeGenerator->generateSalesInvoiceCode(),
@@ -47,7 +52,7 @@ class SaleSeeder extends Seeder
                     ? null
                     : fake()->name(),
 
-                'sales_date' => Carbon::now()->subDays(rand(0, 30))->toDateString(),
+                'sales_date' => $salesDate->toDateString(),
 
                 'sales_subtotal' => $subtotal,
                 'sales_discount_value' => $discount,
@@ -56,11 +61,13 @@ class SaleSeeder extends Seeder
 
                 'sales_payment_method' => collect(['cash', 'debit', 'qris'])->random(),
 
-                'sales_status' => rand(0, 10) > 1, // mayoritas PAID
+                // ±85% PAID
+                'sales_status' => rand(1, 100) <= 85,
 
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $salesDate,
+                'updated_at' => $salesDate,
             ]);
         }
+
     }
 }

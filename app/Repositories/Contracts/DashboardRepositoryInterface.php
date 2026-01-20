@@ -33,4 +33,24 @@ interface DashboardRepositoryInterface
      * Get top selling items
      */
     public function getTopSellingItems(int $limit = 5): array;
+
+    /**
+     * Get recent transactions
+     */
+    public function getRecentTransactions(int $limit = 2): array;
+
+    /**
+     * Get recent system activities
+     */
+    public function getRecentSystemActivities(int $limit = 2): array;
+
+    /**
+     * Get recent members
+     */
+    public function getRecentMembers(int $limit = 1): array;
+
+    /**
+     * Get recent stock updates
+     */
+    public function getRecentStockUpdates(int $limit = 1): array;
 }

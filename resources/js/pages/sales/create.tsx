@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Plus, Save, ArrowLeft, User, Users, Search } from 'lucide-react';
+import { Trash2, Plus, Save, ArrowLeft, User, Users, Search, AlertCircle  } from 'lucide-react';
 import { FormEventHandler, useState, useEffect } from 'react';
 import { ItemCombobox, Item } from '@/components/item-combobox';
 import { MemberCombobox, Member } from '@/components/member-combobox';
@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { router } from '@inertiajs/react';
+import { Alert, AlertDescription } from "@/components/ui/alert"; // Tambah Alert
 
 
 
@@ -77,7 +78,8 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
   const [searchMember, setSearchMember] = useState('');
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [itemStocks, setItemStocks] = useState<Record<string, number>>({});
+
   const { data, setData, post, processing, errors } = useForm({
     sales_date: new Date().toISOString().split('T')[0],
     sales_payment_method: 'cash' as 'cash' | 'debit' | 'qris',
@@ -93,6 +95,8 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
       birth_date: new Date().toISOString().split('T')[0],
     }
   });
+
+  const selectedItemCodes = data.items.map(item => item.item_code).filter(code => code !== '');
 
   // Filter members berdasarkan pencarian
   const filteredMembers = members.filter(member =>
@@ -179,6 +183,22 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
     const newItems = [...data.items];
     const item = { ...newItems[index], [field]: value };
     
+    // Validasi quantity tidak melebihi stok
+    if (field === 'quantity') {
+      const itemCode = item.item_code;
+      const currentStock = itemStocks[itemCode] || 0;
+      const quantity = parseInt(value) || 0;
+      
+      if (quantity > currentStock) {
+        toast.error(`Stok ${item.item_name || 'item'} hanya ${currentStock}`);
+        item.quantity = Math.max(1, Math.min(currentStock, quantity)); // Batasi ke stok maksimum
+      }
+      
+      if (quantity <= 0) {
+        item.quantity = 1; // Minimum 1
+      }
+    }
+    
     // Recalculate discount value and total price
     if (field === 'sell_price' || field === 'quantity' || field === 'discount_item') {
       item.discount_value = (item.sell_price * (item.discount_item / 100)) * item.quantity;
@@ -191,15 +211,77 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
 
   const handleItemSelect = (index: number, item: Item) => {
     const newItems = [...data.items];
+    
+    // Simpan stok asli item
+    setItemStocks(prev => ({
+      ...prev,
+      [item.item_code]: item.item_stock
+    }));
+    
+    // Set quantity maksimum = stok yang tersedia
+    const maxQuantity = Math.max(1, item.item_stock);
+    const currentQuantity = newItems[index].quantity || 1;
+    const quantity = Math.min(currentQuantity, maxQuantity);
+    
     newItems[index] = {
       ...newItems[index],
       item_code: item.item_code,
       item_name: item.item_name,
       sell_price: item.item_price || 0,
+      quantity: quantity,
       discount_value: 0,
-      total_price: (item.item_price || 0) * newItems[index].quantity
+      total_price: (item.item_price || 0) * quantity
     };
+    
     setData('items', newItems);
+    
+    // Tampilkan peringatan jika stok rendah
+    if (item.item_stock < 10) {
+      toast.warning(`Stok ${item.item_name} rendah: ${item.item_stock} unit`, {
+        description: "Segera lakukan restock"
+      });
+    }
+  };
+
+  const getAvailableStock = (itemCode: string, excludeIndex?: number): number => {
+    const baseStock = itemStocks[itemCode] || 0;
+    if (!baseStock) return 0;
+    
+    // Hitung total quantity yang sudah dipilih di semua row (kecuali row saat ini)
+    const totalSelected = data.items.reduce((total, item, idx) => {
+      if (item.item_code === itemCode && idx !== excludeIndex) {
+        return total + item.quantity;
+      }
+      return total;
+    }, 0);
+    
+    return Math.max(0, baseStock - totalSelected);
+  };
+
+  // Validasi sebelum submit
+  const validateItemsBeforeSubmit = (): boolean => {
+    for (let i = 0; i < data.items.length; i++) {
+      const item = data.items[i];
+      
+      if (!item.item_code) {
+        toast.error(`Baris ${i + 1}: Pilih item terlebih dahulu`);
+        return false;
+      }
+      
+      const availableStock = getAvailableStock(item.item_code, i);
+      
+      if (item.quantity > availableStock) {
+        toast.error(`Baris ${i + 1}: ${item.item_name} - Quantity melebihi stok tersedia (${availableStock})`);
+        return false;
+      }
+      
+      if (item.quantity <= 0) {
+        toast.error(`Baris ${i + 1}: ${item.item_name} - Quantity harus lebih dari 0`);
+        return false;
+      }
+    }
+    
+    return true;
   };
 
   // Calculations
@@ -212,8 +294,8 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
  const handleSubmit: FormEventHandler = async (e) => {
     e.preventDefault();
     
-    // Validasi minimal 1 item
-     if (!data.customer_name.trim()) {
+    // Validasi nama pelanggan
+    if (!data.customer_name.trim()) {
       toast.error('Nama pelanggan harus diisi');
       return;
     }
@@ -224,16 +306,9 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
       return;
     }
 
-    // Validasi setiap item
-    for (const item of data.items) {
-      if (!item.item_code) {
-        toast.error('Pilihlah suatu barang');
-        return;
-      }
-      if (item.quantity <= 0) {
-        toast.error('Jumlah barang harus lebih dari 0');
-        return;
-      }
+    // Validasi quantity tidak melebihi stok
+    if (!validateItemsBeforeSubmit()) {
+      return;
     }
     
     // Prepare data for submission
@@ -268,11 +343,6 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
     } catch (error: any) {
       toast.error('Gagal menyimpan transaksi');
       console.error('Error details:', error.response?.data);
-      
-      // Set errors jika ada
-      if (error.response?.data?.errors) {
-        // Atur error ke state jika diperlukan
-      }
     } finally {
       setIsSubmitting(false);
     }
@@ -537,6 +607,19 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                   Rp {grandTotal.toLocaleString('id-ID')}
                 </p>
                 
+                {/* Alert untuk stok rendah */}
+                {data.items.some(item => {
+                  const stock = itemStocks[item.item_code] || 0;
+                  return stock < 10 && stock > 0;
+                }) && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Beberapa item stok rendah! Periksa sebelum checkout.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="text-sm text-left w-full space-y-1">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
@@ -571,9 +654,9 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%]">Barang</TableHead>
+                    <TableHead className="w-[25%]">Barang</TableHead>
                     <TableHead className="w-[15%]">Harga Jual (Rp)</TableHead>
-                    <TableHead className="w-[10%]">Qty</TableHead>
+                    <TableHead className="w-[15%]">Qty / Stok</TableHead>
                     <TableHead className="w-[15%]">Diskon Item (%)</TableHead>
                     <TableHead className="w-[15%] text-right">Diskon (Rp)</TableHead>
                     <TableHead className="w-[15%] text-right">Subtotal</TableHead>
@@ -588,62 +671,81 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                       </TableCell>
                     </TableRow>
                   )}
-                  {data.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <ItemCombobox
-                          value={item.item_code}
-                          onSelect={(selectedItem) => handleItemSelect(index, selectedItem)}
-                          placeholder="Cari Barang..."
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <MoneyInput
-                          placeholder="Rp 0"
-                          value={item.sell_price}
-                          onValueChange={(values) => {
-                            updateItemRow(index, 'sell_price', values.floatValue || 0);
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItemRow(index, 'quantity', parseInt(e.target.value) || 0)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={item.discount_item}
-                          onChange={(e) => updateItemRow(index, 'discount_item', parseFloat(e.target.value) || 0)}
-                          placeholder="0%"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="text-red-600">
-                          - Rp {item.discount_value.toLocaleString('id-ID')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        Rp {item.total_price.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeItemRow(index)}
-                          className="text-red-500 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {data.items.map((item, index) => {
+                    const currentStock = itemStocks[item.item_code] || 0;
+                    const availableStock = getAvailableStock(item.item_code, index);
+                    const stockWarning = currentStock < 10;
+                    
+                    return (
+                      <TableRow key={index} className={stockWarning ? "bg-red-50" : ""}>
+                        <TableCell>
+                          <ItemCombobox
+                            value={item.item_code}
+                            onSelect={(selectedItem) => handleItemSelect(index, selectedItem)}
+                            placeholder="Cari Barang..."
+                            disabledItems={selectedItemCodes.filter(code => code !== item.item_code)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <MoneyInput
+                            placeholder="Rp 0"
+                            value={item.sell_price}
+                            onValueChange={(values) => {
+                              updateItemRow(index, 'sell_price', values.floatValue || 0);
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              min="1"
+                              max={availableStock}
+                              value={item.quantity}
+                              onChange={(e) => updateItemRow(index, 'quantity', parseInt(e.target.value) || 0)}
+                              className={stockWarning ? "border-red-300" : ""}
+                            />
+                            <div className="flex items-center text-xs">
+                              <span className={availableStock <= 5 ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                                Tersedia: {availableStock}
+                              </span>
+                              {stockWarning && (
+                                <AlertCircle className="h-3 w-3 text-red-500 ml-1" />
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.discount_item}
+                            onChange={(e) => updateItemRow(index, 'discount_item', parseFloat(e.target.value) || 0)}
+                            placeholder="0%"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-red-600">
+                            - Rp {item.discount_value.toLocaleString('id-ID')}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          Rp {item.total_price.toLocaleString('id-ID')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeItemRow(index)}
+                            className="text-red-500 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>

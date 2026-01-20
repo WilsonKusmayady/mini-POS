@@ -34,7 +34,6 @@ class DashboardController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Log error untuk debugging
             \Log::error('Dashboard stats error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'file' => $e->getFile(),
@@ -67,7 +66,6 @@ class DashboardController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Log error untuk debugging
             \Log::error('Dashboard chart error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
@@ -75,6 +73,31 @@ class DashboardController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch chart data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get recent activities data
+     */
+    public function getActivities(Request $request)
+    {
+        try {
+            $activities = $this->dashboardService->getRecentActivities();
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Dashboard activities error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch activities: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -15,6 +15,8 @@ use App\Repositories\Contracts\SaleRepositoryInterface;
 use App\Repositories\SaleRepository;
 use App\Repositories\Contracts\SupplierRepositoryInterface;
 use App\Repositories\SupplierRepository;
+use App\Repositories\Contracts\DashboardRepositoryInterface;
+use App\Repositories\DashboardRepository;
 use Carbon\Carbon;
 
 
