@@ -77,6 +77,9 @@ Route::middleware('auth')->group(function () {
         
         // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
+
+        // Purchase API
+        Route::get('/purchases', [PurchaseController::class, 'apiIndex'])->name('purchases.api.index');
     });
 
 });
