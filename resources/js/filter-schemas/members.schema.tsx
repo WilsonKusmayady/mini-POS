@@ -12,8 +12,8 @@ export const membersFilterSchema: FilterSchema = {
             defaultValue: 'all',
             options: [
                 { value: 'all', label: 'Semua Gender' },
-                { value: '1', label: 'Laki-laki' },
-                { value: '0', label: 'Perempuan' },
+                { value: '1', label: 'Pria' },
+                { value: '0', label: 'Wanita' },
             ]
         },
         {

@@ -161,6 +161,11 @@ export function FilterModal({
         setTempFilters(resetFilters);
     };
 
+    const FieldWrapper = ({ children }: { children: React.ReactNode }) => (
+        <div className="space-y-1.5">{children}</div>
+    );
+
+
     const getActiveFilterCount = () => {
         return Object.keys(filters).filter(key => 
             filters[key] !== undefined && 
@@ -198,65 +203,76 @@ export function FilterModal({
 
             case 'radio':
                 return (
-                    <div className="space-y-3">
+                    <FieldWrapper>
                         <Label>{field.label}</Label>
                         <RadioGroup
                             value={value as string}
                             onValueChange={(val) => handleTempFilterChange(field.key, val)}
-                            className="flex flex-col space-y-2"
+                            className="space-y-2"
                         >
                             {field.options?.map((option) => (
-                                <div key={option.value} className="flex items-center space-x-2">
-                                    <RadioGroupItem value={option.value} id={`${field.key}-${option.value}`} />
-                                    <Label htmlFor={`${field.key}-${option.value}`} className="font-normal">
-                                        {option.label}
-                                    </Label>
-                                </div>
+                                <label
+                                    key={option.value}
+                                    htmlFor={`${field.key}-${option.value}`}
+                                    className="flex items-center gap-2 text-sm font-normal"
+                                >
+                                    <RadioGroupItem
+                                        value={option.value}
+                                        id={`${field.key}-${option.value}`}
+                                    />
+                                    {option.label}
+                                </label>
                             ))}
                         </RadioGroup>
-                    </div>
+                    </FieldWrapper>
                 );
 
             case 'date':
                 return (
-                    <div className="space-y-2">
+                    <FieldWrapper>
                         <Label htmlFor={field.key}>{field.label}</Label>
                         <Input
                             id={field.key}
                             type="date"
                             value={value as string || ''}
                             onChange={(e) => handleTempFilterChange(field.key, e.target.value)}
-                            placeholder={field.placeholder}
                         />
-                    </div>
+                    </FieldWrapper>
                 );
 
             case 'date-range':
                 return (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <Label>{field.label}</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-2">
-                                <Label htmlFor={`${field.key}-start`} className="text-sm">Dari Tanggal</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">
+                                    Dari Tanggal
+                                </Label>
                                 <Input
-                                    id={`${field.key}-start`}
                                     type="date"
                                     value={tempFilters[`${field.key}_start`] as string || ''}
-                                    onChange={(e) => handleTempFilterChange(`${field.key}_start`, e.target.value)}
+                                    onChange={(e) =>
+                                        handleTempFilterChange(`${field.key}_start`, e.target.value)
+                                    }
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor={`${field.key}-end`} className="text-sm">Sampai Tanggal</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">
+                                    Sampai Tanggal
+                                </Label>
                                 <Input
-                                    id={`${field.key}-end`}
                                     type="date"
                                     value={tempFilters[`${field.key}_end`] as string || ''}
-                                    onChange={(e) => handleTempFilterChange(`${field.key}_end`, e.target.value)}
+                                    onChange={(e) =>
+                                        handleTempFilterChange(`${field.key}_end`, e.target.value)
+                                    }
                                 />
                             </div>
                         </div>
                     </div>
                 );
+
 
             case 'text':
                 return (

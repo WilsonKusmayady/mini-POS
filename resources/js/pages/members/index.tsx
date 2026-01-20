@@ -560,7 +560,7 @@ export default function MembersIndex() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Member Laki-laki
+                                Member Pria (Page ini)
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -580,7 +580,7 @@ export default function MembersIndex() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Member Perempuan
+                                Member Wanita (Page ini)
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
