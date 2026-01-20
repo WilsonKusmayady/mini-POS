@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Repositories\Contracts\SaleRepositoryInterface;
 use App\Repositories\Contracts\ItemRepositoryInterface;
+use App\Services\CodeGeneratorService;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Sales;
@@ -12,13 +13,16 @@ class SalesService
 {
     protected $saleRepository;
     protected $itemRepository;
+    protected $codeGeneratorService;
 
     public function __construct(
         SaleRepositoryInterface $saleRepository,
-        ItemRepositoryInterface $itemRepository
+        ItemRepositoryInterface $itemRepository,
+        CodeGeneratorService $codeGeneratorService
     ) {
         $this->saleRepository = $saleRepository;
         $this->itemRepository = $itemRepository;
+        $this->codeGeneratorService = $codeGeneratorService;
     }
 
     /**
@@ -72,7 +76,7 @@ class SalesService
         $this->validateSaleData($data);
         
         // Generate invoice code
-        $invoiceCode = $this->generateInvoiceCode();
+        $invoiceCode = $this->codeGeneratorService->generateSalesInvoiceCode();
         
         // Calculate totals (gunakan dari data yang sudah dihitung di frontend)
         $saleData = [
@@ -109,7 +113,6 @@ class SalesService
                     'total_item_price' => (float) $item['total_item_price'],
                 ];
 
-
                 $this->saleRepository->createDetail($detailData);
                 
                 // Update item stock
@@ -130,7 +133,7 @@ class SalesService
     }
 
     /**
-     * Cancel sale transaction
+     * Cancel sale transaction (restore stock)
      */
     public function cancelSale(string $invoiceCode)
     {
@@ -161,6 +164,43 @@ class SalesService
             \DB::commit();
             
             return true;
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Delete sale transaction permanently
+     */
+    public function deleteSale(string $invoiceCode)
+    {
+        $sale = $this->saleRepository->getSaleWithDetails($invoiceCode);
+        
+        if (!$sale) {
+            throw new \Exception('Sale not found');
+        }
+        
+        \DB::beginTransaction();
+        
+        try {
+            // Restore item stock before deletion if sale is active
+            if ($sale->sales_status == 1) {
+                foreach ($sale->sales_details as $detail) {
+                    $this->itemRepository->increaseStock(
+                        $detail->item_code,
+                        $detail->sales_quantity
+                    );
+                }
+            }
+            
+            // Delete sale and related details (cascade)
+            $deleted = $this->saleRepository->deleteSale($invoiceCode);
+            
+            \DB::commit();
+            
+            return $deleted;
             
         } catch (\Exception $e) {
             \DB::rollBack();
@@ -307,7 +347,7 @@ class SalesService
             $validated['search'] = trim($filters['search']);
         }
         
-        if (!empty($filters['status'])) {
+        if (isset($filters['status'])) {
             $validated['status'] = (int) $filters['status'];
         }
         
@@ -381,26 +421,25 @@ class SalesService
             'customer_name' => $sale->customer_name,
             'member_code' => $sale->member_code,
             'sales_date' => $sale->sales_date,
-            'sales_subtotal' => (float) $sale->sales_subtotal, // TAMBAHKAN
-            'sales_discount_value' => (float) $sale->sales_discount_value, // TAMBAHKAN
-            'sales_hasil_discount_value' => (float) $sale->sales_hasil_discount_value, // TAMBAHKAN
+            'sales_subtotal' => (float) $sale->sales_subtotal,
+            'sales_discount_value' => (float) $sale->sales_discount_value,
+            'sales_hasil_discount_value' => (float) $sale->sales_hasil_discount_value,
             'sales_grand_total' => (float) $sale->sales_grand_total,
             'sales_payment_method' => $sale->sales_payment_method,
             'sales_status' => (bool) $sale->sales_status,
-            'user_id' => $sale->user_id, // TAMBAHKAN jika perlu
+            'user_id' => $sale->user_id,
             'created_at' => $sale->created_at,
             'items' => $sale->sales_details->map(function ($detail) {
                 return [
                     'item_code' => $detail->item_code,
                     'item_name' => $detail->item->item_name ?? 'Unknown',
                     'sales_quantity' => $detail->sales_quantity,
-                    'sell_price' => (float) $detail->sell_price, // TAMBAHKAN
-                    'sales_discount_item' => (float) $detail->sales_discount_item, // TAMBAHKAN
-                    'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item, // TAMBAHKAN
-                    'total_item_price' => (float) $detail->total_item_price, // TAMBAHKAN
+                    'sell_price' => (float) $detail->sell_price,
+                    'sales_discount_item' => (float) $detail->sales_discount_item,
+                    'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
+                    'total_item_price' => (float) $detail->total_item_price,
                 ];
             })->toArray(),
         ];
     }
-
 }

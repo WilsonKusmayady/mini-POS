@@ -17,7 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { memberViewSchema } from '@/view-schemas/member.schema';
 import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
-import { FilterModal, useFilterModal, type FilterParams } from '@/components/ui/filter-modal';
+import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
+import { membersFilterSchema, convertMembersFiltersToParams } from '@/filter-schemas/members.schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -63,27 +64,24 @@ interface PaginationData {
     total: number;
 }
 
-
 export default function MembersIndex() {
     const [members, setMembers] = useState<Member[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [genderFilter, setGenderFilter] = useState<string>('all');
     const [perPage, setPerPage] = useState<string>('10');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [dateRange, setDateRange] = useState<{ start?: Date; end?: Date }>({});
     
-    const { openModal, Modal: FilterModalComponent } = useFilterModal();
+    // State untuk filter
+    const [activeFilters, setActiveFilters] = useState<FilterParams>({});
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    
     const { openModal: openViewModal, Modal: ViewModalComponent } = useViewModal();
 
     // Debounce search input
     useEffect(() => {
-        console.log('Search changed:', search); // Debug
-        
         const timer = setTimeout(() => {
-            console.log('Debounced search set to:', search); // Debug
             setDebouncedSearch(search);
             setCurrentPage(1);
         }, 500);
@@ -91,32 +89,30 @@ export default function MembersIndex() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    // Fetch members data dengan filter baru
+    // Fetch members data dengan filter
     const fetchMembers = async () => {
         setLoading(true);
         try {
+            const filterParams = convertMembersFiltersToParams(activeFilters);
+            
             const params = new URLSearchParams({
                 page: currentPage.toString(),
                 per_page: perPage,
                 search: debouncedSearch,
-                gender: genderFilter !== 'all' ? genderFilter : '',
-                // PERHATIAN: TAMBAHKAN start_date dan end_date JIKA ADA
-                ...(dateRange.start && { start_date: dateRange.start.toISOString().split('T')[0] }),
-                ...(dateRange.end && { end_date: dateRange.end.toISOString().split('T')[0] }),
+                ...filterParams
             });
 
-            console.log('🔍 API Request URL:', params.toString()); // Debug
+            console.log('🔍 Fetching members with params:', Object.fromEntries(params));
             
             const url = `${appRoutes.members.api.list()}?${params}`;
             const response = await axios.get(url);
             
-            console.log('✅ API Response:', {
+            console.log('✅ Members fetched:', {
                 total: response.data.total || 0,
                 count: response.data.data?.length || 0,
                 filtersUsed: {
                     search: debouncedSearch,
-                    start_date: dateRange.start?.toISOString().split('T')[0],
-                    end_date: dateRange.end?.toISOString().split('T')[0]
+                    ...filterParams
                 }
             });
             
@@ -124,59 +120,44 @@ export default function MembersIndex() {
             setPagination(response.data);
         } catch (error: any) {
             console.error('❌ Error fetching members:', error);
-            // ... error handling
+            toast.error('Gagal memuat data member');
         } finally {
             setLoading(false);
         }
     };
 
-    // Debug useEffect fetchMembers
+    // Fetch data ketika filter berubah
     useEffect(() => {
-        console.log('Fetching with filters:', {
-            debouncedSearch,
-            genderFilter,
-            dateRange,
-            currentPage,
-            perPage
-        });
         fetchMembers();
-    }, [currentPage, perPage, debouncedSearch, genderFilter, dateRange]);
+    }, [currentPage, perPage, debouncedSearch, activeFilters]);
 
-    // Fungsi untuk handle filter dari modal
+    // Handle filter change dari modal
     const handleFilterChange = (filters: FilterParams) => {
-        if (filters.search !== undefined) {
-            setSearch(filters.search);
+        console.log('Filter changed:', filters);
+        setActiveFilters(filters);
+        setCurrentPage(1);
+        setFilterModalOpen(false);
+    };
+
+    // Handle clear individual filter
+    const handleClearFilter = (key: string) => {
+        const newFilters = { ...activeFilters };
+        
+        // Handle date-range keys
+        if (key === 'birth_date') {
+            delete newFilters['birth_date_start'];
+            delete newFilters['birth_date_end'];
+        } else {
+            delete newFilters[key];
         }
         
-        if (filters.gender !== undefined) {
-            setGenderFilter(filters.gender || 'all');
-        }
-        
-        setDateRange({
-            start: filters.startDate,
-            end: filters.endDate,
-        });
-        
+        setActiveFilters(newFilters);
         setCurrentPage(1);
     };
 
-    // Fungsi untuk membuka modal filter dengan state saat ini
-    const handleOpenFilterModal = () => {
-        const currentFilters: FilterParams = {
-            search: search,
-            gender: genderFilter !== 'all' ? genderFilter : undefined,
-            startDate: dateRange.start,
-            endDate: dateRange.end,
-        };
-        
-        openModal(currentFilters, handleFilterChange);
-    };
-
-    // Fungsi untuk reset semua filter
-    const handleResetFilters = () => {
-        setSearch('');
-        setGenderFilter('all');
-        setDateRange({});
+    // Handle clear all filters
+    const handleClearAllFilters = () => {
+        setActiveFilters({});
         setCurrentPage(1);
     };
 
@@ -333,6 +314,51 @@ export default function MembersIndex() {
         );
     };
 
+    // Helper untuk menampilkan nilai filter
+    const getFilterDisplayValue = (key: string, value: any): string => {
+        // Format gender
+        if (key === 'gender') {
+            return value === '1' ? 'Laki-laki' : 'Perempuan';
+        }
+        
+        // Format tanggal
+        if (key.endsWith('_start') || key.endsWith('_end')) {
+            if (value) {
+                const date = new Date(value);
+                return date.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+        }
+        
+        return String(value);
+    };
+
+    // Hitung jumlah filter aktif
+    const getActiveFilterCount = () => {
+        let count = 0;
+        if (activeFilters.gender && activeFilters.gender !== 'all') count++;
+        if (activeFilters.birth_date_start) count++;
+        if (activeFilters.birth_date_end) count++;
+        return count;
+    };
+
+    // Get display name untuk filter key
+    const getFilterDisplayKey = (key: string): string => {
+        switch (key) {
+            case 'gender':
+                return 'Gender';
+            case 'birth_date_start':
+                return 'Lahir (Dari)';
+            case 'birth_date_end':
+                return 'Lahir (Sampai)';
+            default:
+                return key;
+        }
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Membership" />
@@ -387,62 +413,72 @@ export default function MembersIndex() {
                         </div>
                         
                         {/* Filter Button - Full width on mobile */}
-                        <Button
-                            variant="outline"
-                            onClick={handleOpenFilterModal}
-                            className="flex items-center justify-center gap-2 w-full sm:w-auto"
-                        >
-                            <Filter className="h-4 w-4" />
-                            Filter
-                        </Button>
+                        <FilterModal
+                            schema={membersFilterSchema}
+                            initialFilters={activeFilters}
+                            onFilterChange={handleFilterChange}
+                            triggerText="Filter"
+                            triggerVariant="outline"
+                            triggerClassName="flex items-center justify-center gap-2 w-full sm:w-auto"
+                            open={filterModalOpen}
+                            onOpenChange={setFilterModalOpen}
+                        />
                     </div>
 
                     {/* Active Filters Display */}
-                    {(genderFilter !== 'all' || dateRange.start || dateRange.end || search) && (
+                    {getActiveFilterCount() > 0 && (
                         <div className="w-full">
                             <div className="flex items-center justify-between">
                                 <div className="flex flex-wrap gap-2 flex-1">
-                                    {search && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            Search: {search}
+                                    {/* Gender Filter Badge */}
+                                    {activeFilters.gender && activeFilters.gender !== 'all' && (
+                                        <Badge variant="secondary" className="text-xs gap-1">
+                                            Gender: {getFilterDisplayValue('gender', activeFilters.gender)}
+                                            <button 
+                                                onClick={() => handleClearFilter('gender')}
+                                                className="hover:bg-gray-200 rounded-full p-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </Badge>
                                     )}
-                                    {genderFilter !== 'all' && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            Gender: {genderFilter === '1' ? 'Laki-laki' : 'Perempuan'}
+                                    
+                                    {/* Birth Date Start Filter Badge */}
+                                    {activeFilters.birth_date_start && (
+                                        <Badge variant="secondary" className="text-xs gap-1">
+                                            Lahir (Dari): {getFilterDisplayValue('birth_date_start', activeFilters.birth_date_start)}
+                                            <button 
+                                                onClick={() => handleClearFilter('birth_date')}
+                                                className="hover:bg-gray-200 rounded-full p-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </Badge>
                                     )}
-                                    {dateRange.start && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            Dari: {dateRange.start.toLocaleDateString('id-ID', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
-                                        </Badge>
-                                    )}
-                                    {dateRange.end && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            Sampai: {dateRange.end.toLocaleDateString('id-ID', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
+                                    
+                                    {/* Birth Date End Filter Badge */}
+                                    {activeFilters.birth_date_end && (
+                                        <Badge variant="secondary" className="text-xs gap-1">
+                                            Lahir (Sampai): {getFilterDisplayValue('birth_date_end', activeFilters.birth_date_end)}
+                                            <button 
+                                                onClick={() => handleClearFilter('birth_date')}
+                                                className="hover:bg-gray-200 rounded-full p-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </Badge>
                                     )}
                                 </div>
                                 
-                                {(genderFilter !== 'all' || dateRange.start || dateRange.end || search) && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleResetFilters}
-                                        className="text-xs h-8 px-2 ml-2"
-                                    >
-                                        <X className="h-3 w-3 mr-1" />
-                                        Clear All
-                                    </Button>
-                                )}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleClearAllFilters}
+                                    className="text-xs h-8 px-2 ml-2"
+                                >
+                                    <X className="h-3 w-3 mr-1" />
+                                    Clear All
+                                </Button>
                             </div>
                         </div>
                     )}
@@ -592,7 +628,7 @@ export default function MembersIndex() {
                                     ) : members.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                {debouncedSearch || genderFilter !== 'all' || dateRange.start || dateRange.end 
+                                                {debouncedSearch || getActiveFilterCount() > 0
                                                     ? 'Tidak ada member yang sesuai dengan pencarian' 
                                                     : 'Belum ada data member'}
                                             </TableCell>
@@ -687,13 +723,6 @@ export default function MembersIndex() {
                     </CardContent>
                 </Card>
             </div>
-            <FilterModalComponent 
-                title="Filter Member"
-                showSearch={true}
-                showGender={true}
-                showDateRange={true}
-            />
-
             <ViewModalComponent />
         </AppLayout>
     );

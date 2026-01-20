@@ -1,15 +1,15 @@
 import AppLayout from '@/layouts/app-layout';
 import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus,Pencil, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, Calendar, X } from 'lucide-react';
-import {Card,CardContent,CardDescription,CardHeader,CardTitle} from '@/components/ui/card';
-import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
+import { Plus, Pencil, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, Calendar, X } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,} from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { salesViewSchema } from '@/view-schemas/sales.schema';
 import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
@@ -17,9 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-// import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
+import { salesFilterSchema, convertSalesFiltersToParams } from '@/filter-schemas/sales.shema';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -82,10 +81,6 @@ export default function SalesHistory({
   filters: initialFilters
 }: SalesHistoryProps) {
   const { openModal, Modal } = useViewModal();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<any>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [showDateFilter, setShowDateFilter] = useState(false);
   
   // State untuk data
   const [sales, setSales] = useState<Sale[]>(Array.isArray(initialSales) ? initialSales : []);
@@ -98,16 +93,20 @@ export default function SalesHistory({
     from: 1,
     to: initialSales.length
   });
-  const [filters, setFilters] = useState({
-    search: initialFilters?.search || '',
-    status: initialFilters?.status || 'all',
-    payment_method: initialFilters?.payment_method || 'all',
-    start_date: initialFilters?.start_date || '',
-    end_date: initialFilters?.end_date || '',
+  
+  // State untuk search
+  const [searchInput, setSearchInput] = useState(initialFilters?.search || '');
+  
+  // State untuk filter modal
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterParams>({
+    status: initialFilters?.status !== undefined ? String(initialFilters.status) : '',
+    payment_method: initialFilters?.payment_method || '',
+    sales_date_start: initialFilters?.start_date || '',
+    sales_date_end: initialFilters?.end_date || '',
   });
   
   // State untuk UI
-  const [searchInput, setSearchInput] = useState(initialFilters?.search || '');
   const [perPage, setPerPage] = useState<string>(initialPagination?.per_page?.toString() || '10');
 
   const viewSale = (sale: Sale) => {
@@ -118,12 +117,85 @@ export default function SalesHistory({
     );
   };
 
+  // Navigasi ke halaman edit
+  const handleEdit = (sale: Sale) => {
+    router.get(appRoutes.sales.edit(sale.sales_invoice_code));
+  };
+
+  // Delete sale
+  const handleDelete = async (sale: Sale) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus transaksi ${sale.sales_invoice_code}?`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`/api/sales/${sale.sales_invoice_code}`);
+      
+      if (response.data.success) {
+        toast.success('Transaksi berhasil dihapus');
+        // Refresh data
+        fetchSales(pagination.current_page);
+      } else {
+        toast.error(response.data.message || 'Gagal menghapus transaksi');
+      }
+    } catch (error: any) {
+      console.error('❌ Error deleting sale:', error);
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Gagal menghapus transaksi');
+      }
+    }
+  };
+
+  // Cancel sale (mengembalikan stok)
+  const handleCancelSale = async (sale: Sale) => {
+    if (!sale.sales_status) {
+      toast.error('Transaksi sudah dibatalkan');
+      return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin membatalkan transaksi ${sale.sales_invoice_code}? Stok barang akan dikembalikan.`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.post(`/api/sales/${sale.sales_invoice_code}/cancel`);
+      
+      if (response.data.success) {
+        toast.success('Transaksi berhasil dibatalkan');
+        // Refresh data
+        fetchSales(pagination.current_page);
+      } else {
+        toast.error(response.data.message || 'Gagal membatalkan transaksi');
+      }
+    } catch (error: any) {
+      console.error('❌ Error canceling sale:', error);
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Gagal membatalkan transaksi');
+      }
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (activeFilters.status && activeFilters.status !== '') count++;
+    if (activeFilters.payment_method && activeFilters.payment_method !== '') count++;
+    if (activeFilters.sales_date_start) count++;
+    if (activeFilters.sales_date_end) count++;
+    return count;
   };
 
   const formatDate = (dateString: string) => {
@@ -190,73 +262,143 @@ export default function SalesHistory({
 
   // Fetch data dengan pagination
   const fetchSales = async (page = pagination.current_page) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        per_page: perPage,
-        ...(filters.search && { search: filters.search }),
-        ...(filters.status && filters.status !== 'all' && { status: filters.status }),
-        ...(filters.payment_method && filters.payment_method !== 'all' && { payment_method: filters.payment_method }),
-        ...(filters.start_date && { start_date: filters.start_date }),
-        ...(filters.end_date && { end_date: filters.end_date }),
-      });
+      setLoading(true);
+      try {
+          // Konversi filter ke format yang sesuai dengan backend
+          const filterParams = convertSalesFiltersToParams(activeFilters);
+          
+          const params = new URLSearchParams({
+              page: page.toString(),
+              per_page: perPage,
+              ...(searchInput && { search: searchInput }),
+              ...filterParams
+          });
 
-      const url = `/api/sales?${params}`;
-      const response = await axios.get(url);
-      
-      if (response.data && response.data.data) {
-        setSales(Array.isArray(response.data.data) ? response.data.data : []);
-        setPagination({
-          current_page: response.data.current_page || 1,
-          per_page: response.data.per_page || parseInt(perPage),
-          total: response.data.total || 0,
-          last_page: response.data.last_page || 1,
-          from: response.data.from || 0,
-          to: response.data.to || 0,
-        });
-      } else {
-        setSales([]);
-        setPagination({
-          current_page: 1,
-          per_page: parseInt(perPage),
-          total: 0,
-          last_page: 1,
-          from: 0,
-          to: 0,
-        });
-        toast.error('Data yang diterima tidak valid');
+          console.log('🔍 Fetching sales with params:', {
+              search: searchInput,
+              ...filterParams,
+              page,
+              per_page: perPage
+          });
+          
+          const url = `/api/sales?${params}`;
+          console.log('🌐 API URL:', url);
+          
+          const response = await axios.get(url);
+          
+          console.log('✅ Sales fetched successfully:', {
+              total: response.data.total || 0,
+              count: response.data.data?.length || 0,
+              filtersUsed: {
+                  search: searchInput,
+                  ...filterParams
+              }
+          });
+          
+          if (response.data && response.data.data) {
+              setSales(Array.isArray(response.data.data) ? response.data.data : []);
+              setPagination({
+                  current_page: response.data.current_page || 1,
+                  per_page: response.data.per_page || parseInt(perPage),
+                  total: response.data.total || 0,
+                  last_page: response.data.last_page || 1,
+                  from: response.data.from || 0,
+                  to: response.data.to || 0,
+              });
+          } else {
+              setSales([]);
+              setPagination({
+                  current_page: 1,
+                  per_page: parseInt(perPage),
+                  total: 0,
+                  last_page: 1,
+                  from: 0,
+                  to: 0,
+              });
+              toast.error('Data yang diterima tidak valid');
+          }
+      } catch (error: any) {
+          console.error('❌ Error fetching sales:', error);
+          
+          // Debug error response
+          if (error.response) {
+              console.error('Error response data:', error.response.data);
+              console.error('Error response status:', error.response.status);
+          }
+          
+          toast.error('Gagal memuat data penjualan');
+          setSales([]);
+      } finally {
+          setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Error fetching sales:', error);
-      toast.error('Gagal memuat data penjualan');
-      setSales([]);
-    } finally {
-      setLoading(false);
-    }
   };
 
-  // Handle filter changes
-  const handleFilterChange = (key: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+  // Handle filter change dari modal
+  const handleFilterChange = (filters: FilterParams) => {
+      console.log('🔄 Filter changed (raw):', filters);
+      
+      // Buat copy baru dari filters
+      const processedFilters: FilterParams = { ...filters };
+      
+      // Pastikan status selalu string (untuk UI), tapi akan dikonversi ke integer saat fetch
+      if (processedFilters.status !== undefined) {
+          processedFilters.status = String(processedFilters.status);
+      }
+      
+      // Reset payment method jika "all" (string kosong)
+      if (processedFilters.payment_method === '') {
+          processedFilters.payment_method = '';
+      }
+      
+      // Reset date jika kosong
+      if (!processedFilters.sales_date_start) {
+          processedFilters.sales_date_start = '';
+      }
+      
+      if (!processedFilters.sales_date_end) {
+          processedFilters.sales_date_end = '';
+      }
+      
+      console.log('✅ Processed filters:', processedFilters);
+      
+      setActiveFilters(processedFilters);
+      setFilterModalOpen(false);
+      setPagination(prev => ({ ...prev, current_page: 1 }));
   };
 
-  const handleApplyFilters = () => {
-    setPagination(prev => ({ ...prev, current_page: 1 }));
-    fetchSales(1);
+  // Handle clear individual filter
+  const handleClearFilter = (key: string) => {
+      console.log('🗑️ Clearing filter:', key);
+      
+      const newFilters = { ...activeFilters };
+      
+      if (key === 'sales_date') {
+          delete newFilters['sales_date_start'];
+          delete newFilters['sales_date_end'];
+      } else if (key === 'status') {
+          // Set ke string kosong, bukan undefined
+          newFilters[key] = '';
+      } else if (key === 'payment_method') {
+          newFilters[key] = '';
+      } else {
+          delete newFilters[key];
+      }
+      
+      console.log('✅ New filters after clear:', newFilters);
+      
+      setActiveFilters(newFilters);
+      setPagination(prev => ({ ...prev, current_page: 1 }));
   };
-
-  const handleResetFilters = () => {
-    setFilters({
-      search: '',
-      status: 'all',
-      payment_method: 'all',
-      start_date: '',
-      end_date: '',
+  
+  // Handle clear all filters
+  const handleClearAllFilters = () => {
+    setActiveFilters({
+      status: '',
+      payment_method: '',
+      sales_date_start: '',
+      sales_date_end: '',
     });
-    setSearchInput('');
     setPagination(prev => ({ ...prev, current_page: 1 }));
-    fetchSales(1);
   };
 
   const handlePageChange = (page: number) => {
@@ -274,39 +416,43 @@ export default function SalesHistory({
     }));
   };
 
-  // Fungsi untuk format tanggal range
-  const formatDateRange = () => {
-    if (filters.start_date && filters.end_date) {
-      const start = new Date(filters.start_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-      });
-      const end = new Date(filters.end_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-      return `${start} - ${end}`;
-    } else if (filters.start_date) {
-      return `Dari ${new Date(filters.start_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })}`;
-    } else if (filters.end_date) {
-      return `Sampai ${new Date(filters.end_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })}`;
+  const formatDateForDisplay = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Helper untuk menampilkan nilai filter
+  const getFilterDisplayValue = (key: string, value: any): string => {
+    if (key === 'status') {
+      return value === '1' ? 'Paid' : 'Cancelled';
     }
-    return 'Pilih Tanggal';
+    
+    if (key === 'payment_method') {
+      return value === 'cash' ? 'Cash' : value === 'debit' ? 'Debit' : 'QRIS';
+    }
+    
+    // Format tanggal
+    if (key.endsWith('_start') || key.endsWith('_end')) {
+      if (value) {
+        const date = new Date(value);
+        return date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    }
+    
+    return String(value);
   };
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: searchInput }));
+      fetchSales(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchInput]);
@@ -316,13 +462,13 @@ export default function SalesHistory({
     fetchSales(1);
   }, [perPage]);
 
-  // Fetch when filters change
+  // Fetch when activeFilters changes
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchSales(1);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [filters.search, filters.status, filters.payment_method, filters.start_date, filters.end_date]);
+  }, [activeFilters]);
 
   // Render pagination buttons
   const renderPaginationButtons = () => {
@@ -450,168 +596,116 @@ export default function SalesHistory({
           </div>
         </div>
 
-        {/* Filter Card - DI PINDAHKAN KE ATAS SUMMARY */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Filter Transaksi</CardTitle>
-            <CardDescription>
-              Saring data transaksi berdasarkan kriteria tertentu
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {/* Search Input */}
-              <div className="md:col-span-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari kode invoice, nama pelanggan..."
-                    className="pl-9"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              {/* Status Filter */}
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => handleFilterChange('status', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="1">Paid</SelectItem>
-                  <SelectItem value="0">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {/* Payment Method Filter */}
-              <Select 
-                value={filters.payment_method} 
-                onValueChange={(value) => handleFilterChange('payment_method', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Payment Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Metode</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="debit">Debit</SelectItem>
-                  <SelectItem value="qris">QRIS</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {/* Date Range Filter */}
-              <Popover open={showDateFilter} onOpenChange={setShowDateFilter}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {formatDateRange()}
-                    {(filters.start_date || filters.end_date) && (
-                      <X 
-                        className="ml-2 h-4 w-4" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFilterChange('start_date', '');
-                          handleFilterChange('end_date', '');
-                        }}
-                      />
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Dari Tanggal</label>
-                        <Input
-                          type="date"
-                          value={filters.start_date}
-                          onChange={(e) => handleFilterChange('start_date', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Sampai Tanggal</label>
-                        <Input
-                          type="date"
-                          value={filters.end_date}
-                          onChange={(e) => handleFilterChange('end_date', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2 mt-4">
-                      <Button variant="outline" size="sm" onClick={() => setShowDateFilter(false)}>
-                        Tutup
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button onClick={handleApplyFilters} className="flex-1">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Terapkan
+        {/* Filter */}
+        <div className="w-full space-y-3">
+          {/* Search Bar */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari kode invoice atau nama pelanggan..."
+                className="pl-9 w-full"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              {searchInput && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                  onClick={() => setSearchInput('')}
+                >
+                  <X className="h-3 w-3" />
                 </Button>
-                <Button variant="outline" onClick={handleResetFilters}>
-                  Reset
+              )}
+            </div>
+            
+            {/* Filter Modal Trigger */}
+            <FilterModal
+              schema={salesFilterSchema}
+              initialFilters={activeFilters}
+              onFilterChange={handleFilterChange}
+              triggerText="Filter"
+              triggerVariant="outline"
+              triggerClassName="flex items-center justify-center gap-2 w-full sm:w-auto"
+              open={filterModalOpen}
+              onOpenChange={setFilterModalOpen}
+            />
+          </div>
+          
+          {/* Active Filters Display */}
+          {getActiveFilterCount() > 0 && (
+            <div className="w-full">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-2 flex-1">
+                  {/* Status Filter */}
+                  {activeFilters.status && activeFilters.status !== '' && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      Status: {getFilterDisplayValue('status', activeFilters.status)}
+                      <button 
+                        onClick={() => handleClearFilter('status')}
+                        className="hover:bg-gray-200 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  
+                  {/* Payment Method Filter */}
+                  {activeFilters.payment_method && activeFilters.payment_method !== '' && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      Payment: {getFilterDisplayValue('payment_method', activeFilters.payment_method)}
+                      <button 
+                        onClick={() => handleClearFilter('payment_method')}
+                        className="hover:bg-gray-200 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  
+                  {/* Date Range Filters */}
+                  {activeFilters.sales_date_start && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      Dari: {formatDateForDisplay(activeFilters.sales_date_start as string)}
+                      <button 
+                        onClick={() => handleClearFilter('sales_date')}
+                        className="hover:bg-gray-200 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  
+                  {activeFilters.sales_date_end && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      Sampai: {formatDateForDisplay(activeFilters.sales_date_end as string)}
+                      <button 
+                        onClick={() => handleClearFilter('sales_date')}
+                        className="hover:bg-gray-200 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearAllFilters}
+                  className="text-xs h-8 px-2 ml-2"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear All
                 </Button>
               </div>
             </div>
-            
-            {/* Active Filters Badge */}
-            {(filters.search || filters.status !== 'all' || filters.payment_method !== 'all' || filters.start_date || filters.end_date) && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <p className="text-sm text-muted-foreground mr-2">Filter aktif:</p>
-                {filters.search && (
-                  <Badge variant="secondary" className="gap-1">
-                    Pencarian: {filters.search}
-                    <button onClick={() => setSearchInput('')}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {filters.status !== 'all' && (
-                  <Badge variant="secondary" className="gap-1">
-                    Status: {filters.status === '1' ? 'Paid' : 'Cancelled'}
-                    <button onClick={() => handleFilterChange('status', 'all')}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {filters.payment_method !== 'all' && (
-                  <Badge variant="secondary" className="gap-1">
-                    Payment: {filters.payment_method === 'cash' ? 'Cash' : filters.payment_method === 'debit' ? 'Debit' : 'QRIS'}
-                    <button onClick={() => handleFilterChange('payment_method', 'all')}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {(filters.start_date || filters.end_date) && (
-                  <Badge variant="secondary" className="gap-1">
-                    {filters.start_date && filters.end_date 
-                      ? `Tanggal: ${formatDateRange()}`
-                      : filters.start_date 
-                      ? `Mulai: ${formatDate(filters.start_date)}`
-                      : `Sampai: ${formatDate(filters.end_date)}`}
-                    <button onClick={() => {
-                      handleFilterChange('start_date', '');
-                      handleFilterChange('end_date', '');
-                    }}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        {/* Summary Card - SEKARANG DI BAWAH FILTER */}
+        {/* Summary Card */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -808,18 +902,24 @@ export default function SalesHistory({
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => viewSale(sale)}>
+                              <DropdownMenuItem onClick={() => handleEdit(sale)}>
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => viewSale(sale)}>
+                              <DropdownMenuItem 
+                                onClick={() => handleDelete(sale)}
+                                className="text-red-600"
+                              >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                               </DropdownMenuItem>
                               {sale.sales_status && (
                                 <>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-red-600">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleCancelSale(sale)}
+                                    className="text-red-600"
+                                  >
                                     Batalkan Transaksi
                                   </DropdownMenuItem>
                                 </>

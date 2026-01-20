@@ -1,3 +1,4 @@
+// components/filters/filter-modal.tsx
 import * as React from 'react';
 import {
     Dialog,
@@ -6,6 +7,7 @@ import {
     DialogTitle,
     DialogFooter,
     DialogTrigger,
+    DialogDescription
 } from '@/components/ui/dialog';
 import {
     Card,
@@ -22,34 +24,45 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { Search, Filter, CalendarIcon, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Filter, CalendarIcon, X } from 'lucide-react';
 
-// Helper functions untuk kalender
-const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate();
-};
+import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
-const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month, 1).getDay();
-};
+export type FilterType = 
+    | 'select'
+    | 'radio'
+    | 'date'
+    | 'date-range'
+    | 'text'
+    | 'number';
 
-const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
+export interface FilterOption {
+    value: string;
+    label: string;
+}
 
-const shortMonthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
-];
+export interface FilterField {
+    key: string;
+    label: string;
+    type: FilterType;
+    placeholder?: string;
+    options?: FilterOption[];
+    defaultValue?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+}
 
-const dayNames = ['M', 'S', 'S', 'R', 'K', 'J', 'S'];
+export interface FilterSchema {
+    fields: FilterField[];
+    title?: string;
+    description?: string;
+}
 
 export interface FilterParams {
-    search?: string;
-    gender?: string;
-    startDate?: Date;
-    endDate?: Date;
+    [key: string]: string | number | Date | null | undefined;
 }
 
 interface FilterModalProps {
@@ -65,15 +78,13 @@ interface FilterModalProps {
     onOpenChange?: (open: boolean) => void;
     
     // Filter props
+    schema: FilterSchema;
     initialFilters?: FilterParams;
     onFilterChange?: (filters: FilterParams) => void;
     
     // Customization
-    title?: string;
-    showSearch?: boolean;
-    showGender?: boolean;
-    showDateRange?: boolean;
-    genderOptions?: Array<{ value: string; label: string }>;
+    showActiveFilters?: boolean;
+    showResetButton?: boolean;
 }
 
 export function FilterModal({
@@ -84,667 +95,349 @@ export function FilterModal({
     triggerClassName,
     open,
     onOpenChange,
+    schema,
     initialFilters = {},
     onFilterChange,
-    title = 'Filter Data',
-    showSearch = true,
-    showGender = true,
-    showDateRange = true,
-    genderOptions = [
-        { value: 'all', label: 'Semua Gender' },
-        { value: '1', label: 'Pria' },
-        { value: '0', label: 'Wanita' },
-    ],
+    showActiveFilters = true,
+    showResetButton = true,
 }: FilterModalProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [filters, setFilters] = React.useState<FilterParams>(initialFilters);
-    const [showStartCalendar, setShowStartCalendar] = React.useState(false);
-    const [showEndCalendar, setShowEndCalendar] = React.useState(false);
+    const [tempFilters, setTempFilters] = React.useState<FilterParams>(initialFilters);
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         if (onOpenChange) {
             onOpenChange(open);
         }
-        // Reset calendar state ketika modal ditutup
-        if (!open) {
-            setShowStartCalendar(false);
-            setShowEndCalendar(false);
+        // Reset temp filters ketika modal dibuka
+        if (open) {
+            setTempFilters(filters);
         }
     };
 
     const currentOpen = open !== undefined ? open : isOpen;
 
-    const handleFilterChange = (key: keyof FilterParams, value: any) => {
-        const newFilters = { ...filters, [key]: value };
-        setFilters(newFilters);
+    const handleTempFilterChange = (key: string, value: any) => {
+        setTempFilters(prev => ({ ...prev, [key]: value }));
     };
 
     const handleApplyFilters = () => {
+        const newFilters = { ...tempFilters };
+        
+        // Hapus filter dengan value undefined atau string kosong
+        Object.keys(newFilters).forEach(key => {
+            if (newFilters[key] === undefined || newFilters[key] === '' || newFilters[key] === null) {
+                delete newFilters[key];
+            }
+        });
+        
+        setFilters(newFilters);
         if (onFilterChange) {
-            onFilterChange(filters);
+            onFilterChange(newFilters);
         }
         setIsOpen(false);
     };
 
     const handleResetFilters = () => {
         const resetFilters: FilterParams = {};
+        schema.fields.forEach(field => {
+            resetFilters[field.key] = field.defaultValue || '';
+        });
+        
         setFilters(resetFilters);
+        setTempFilters(resetFilters);
         if (onFilterChange) {
             onFilterChange(resetFilters);
         }
         setIsOpen(false);
     };
 
-    const formatDateDisplay = (date?: Date) => {
-        if (!date) return '';
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = shortMonthNames[date.getMonth()];
-        const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+    const handleResetTempFilters = () => {
+        const resetFilters: FilterParams = {};
+        schema.fields.forEach(field => {
+            resetFilters[field.key] = field.defaultValue || '';
+        });
+        setTempFilters(resetFilters);
     };
 
-    // Komponen Badge
-    const Badge = ({ children, variant = 'secondary', className }: { children: React.ReactNode; variant?: 'default' | 'secondary'; className?: string }) => (
-        <span className={cn(
-            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
-            variant === 'secondary' ? "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80" : "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-            className
-        )}>
-            {children}
-        </span>
-    );
+    const getActiveFilterCount = () => {
+        return Object.keys(filters).filter(key => 
+            filters[key] !== undefined && 
+            filters[key] !== null && 
+            filters[key] !== '' &&
+            filters[key] !== (schema.fields.find(f => f.key === key)?.defaultValue || '')
+        ).length;
+    };
 
-    // Komponen Calendar yang lebih canggih dengan pilihan tahun
-    const EnhancedCalendar = ({ 
-        selected, 
-        onSelect,
-        disabled,
-        minDate,
-        maxDate
-    }: { 
-        selected?: Date; 
-        onSelect: (date: Date | undefined) => void;
-        disabled?: (date: Date) => boolean;
-        minDate?: Date;
-        maxDate?: Date;
-    }) => {
-        const [currentDate, setCurrentDate] = React.useState(selected || new Date());
-        const [viewMode, setViewMode] = React.useState<'days' | 'months' | 'years'>('days');
-        
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        
-        // Fungsi untuk navigasi
-        const prevMonth = () => {
-            setCurrentDate(new Date(year, month - 1, 1));
-        };
-        
-        const nextMonth = () => {
-            setCurrentDate(new Date(year, month + 1, 1));
-        };
-        
-        const prevYear = () => {
-            setCurrentDate(new Date(year - 1, month, 1));
-        };
-        
-        const nextYear = () => {
-            setCurrentDate(new Date(year + 1, month, 1));
-        };
-        
-        // Render tampilan hari
-        const renderDaysView = () => {
-            const daysInMonth = getDaysInMonth(year, month);
-            const firstDayOfMonth = getFirstDayOfMonth(year, month);
-            
-            const days = [];
-            
-            // Empty cells for days before the first day of the month
-            for (let i = 0; i < firstDayOfMonth; i++) {
-                days.push(<div key={`empty-${i}`} className="h-9 w-9"></div>);
-            }
-            
-            // Days of the month
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const isSelected = selected && 
-                    date.getDate() === selected.getDate() &&
-                    date.getMonth() === selected.getMonth() &&
-                    date.getFullYear() === selected.getFullYear();
-                const isDisabled = disabled ? disabled(date) : false;
-                const isToday = date.toDateString() === new Date().toDateString();
-                
-                days.push(
-                    <button
-                        key={day}
-                        onClick={() => !isDisabled && onSelect(date)}
-                        className={cn(
-                            "h-9 w-9 rounded-md text-sm transition-colors relative",
-                            isSelected 
-                                ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                                : isToday
-                                ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                                : "hover:bg-accent hover:text-accent-foreground",
-                            isDisabled && "opacity-50 cursor-not-allowed"
-                        )}
-                        disabled={isDisabled}
-                    >
-                        {day}
-                    </button>
-                );
-            }
-            
-            return (
-                <>
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={prevYear}
-                                className="h-7 w-7 p-0"
-                            >
-                                <ChevronsLeft className="h-3 w-3" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={prevMonth}
-                                className="h-7 w-7 p-0"
-                            >
-                                <ChevronLeft className="h-3 w-3" />
-                            </Button>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setViewMode('months')}
-                                className="px-2"
-                            >
-                                {monthNames[month]}
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setViewMode('years')}
-                                className="px-2"
-                            >
-                                {year}
-                            </Button>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={nextMonth}
-                                className="h-7 w-7 p-0"
-                            >
-                                <ChevronRight className="h-3 w-3" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={nextYear}
-                                className="h-7 w-7 p-0"
-                            >
-                                <ChevronsRight className="h-3 w-3" />
-                            </Button>
-                        </div>
+    const renderFilterField = (field: FilterField) => {
+        const value = tempFilters[field.key] || field.defaultValue || '';
+
+        switch (field.type) {
+            case 'select':
+                return (
+                    <div className="space-y-2">
+                        <Label htmlFor={field.key}>{field.label}</Label>
+                        <Select
+                            value={value as string}
+                            onValueChange={(val) => handleTempFilterChange(field.key, val)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={field.placeholder || `Pilih ${field.label}`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {field.options?.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-2">
-                        {dayNames.map((day, i) => (
-                            <div key={i} className="h-6 flex items-center justify-center">
-                                {day}
+                );
+
+            case 'radio':
+                return (
+                    <div className="space-y-3">
+                        <Label>{field.label}</Label>
+                        <RadioGroup
+                            value={value as string}
+                            onValueChange={(val) => handleTempFilterChange(field.key, val)}
+                            className="flex flex-col space-y-2"
+                        >
+                            {field.options?.map((option) => (
+                                <div key={option.value} className="flex items-center space-x-2">
+                                    <RadioGroupItem value={option.value} id={`${field.key}-${option.value}`} />
+                                    <Label htmlFor={`${field.key}-${option.value}`} className="font-normal">
+                                        {option.label}
+                                    </Label>
+                                </div>
+                            ))}
+                        </RadioGroup>
+                    </div>
+                );
+
+            case 'date':
+                return (
+                    <div className="space-y-2">
+                        <Label htmlFor={field.key}>{field.label}</Label>
+                        <Input
+                            id={field.key}
+                            type="date"
+                            value={value as string || ''}
+                            onChange={(e) => handleTempFilterChange(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                        />
+                    </div>
+                );
+
+            case 'date-range':
+                return (
+                    <div className="space-y-3">
+                        <Label>{field.label}</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label htmlFor={`${field.key}-start`} className="text-sm">Dari Tanggal</Label>
+                                <Input
+                                    id={`${field.key}-start`}
+                                    type="date"
+                                    value={tempFilters[`${field.key}_start`] as string || ''}
+                                    onChange={(e) => handleTempFilterChange(`${field.key}_start`, e.target.value)}
+                                />
                             </div>
-                        ))}
+                            <div className="space-y-2">
+                                <Label htmlFor={`${field.key}-end`} className="text-sm">Sampai Tanggal</Label>
+                                <Input
+                                    id={`${field.key}-end`}
+                                    type="date"
+                                    value={tempFilters[`${field.key}_end`] as string || ''}
+                                    onChange={(e) => handleTempFilterChange(`${field.key}_end`, e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div className="grid grid-cols-7 gap-1">
-                        {days}
-                    </div>
-                </>
-            );
-        };
-        
-        // Render tampilan bulan
-        const renderMonthsView = () => {
-            return (
-                <>
-                    <div className="flex items-center justify-between mb-4">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={prevYear}
-                            className="h-7 w-7 p-0"
-                        >
-                            <ChevronsLeft className="h-3 w-3" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setViewMode('years')}
-                            className="px-4"
-                        >
-                            {year}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={nextYear}
-                            className="h-7 w-7 p-0"
-                        >
-                            <ChevronsRight className="h-3 w-3" />
-                        </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-2">
-                        {monthNames.map((monthName, index) => {
-                            const monthDate = new Date(year, index, 1);
-                            const isSelected = selected && 
-                                selected.getMonth() === index && 
-                                selected.getFullYear() === year;
-                            
-                            return (
-                                <Button
-                                    key={monthName}
-                                    variant={isSelected ? "default" : "outline"}
-                                    onClick={() => {
-                                        setCurrentDate(monthDate);
-                                        setViewMode('days');
-                                    }}
-                                    className="h-10"
-                                >
-                                    {monthName}
-                                </Button>
-                            );
-                        })}
-                    </div>
-                </>
-            );
-        };
-        
-        // Render tampilan tahun
-        const renderYearsView = () => {
-            const currentYear = new Date().getFullYear();
-            const startYear = Math.floor(currentYear / 10) * 10 - 10; // 10 tahun sebelum decade sekarang
-            const years = [];
-            
-            for (let i = 0; i < 20; i++) {
-                const year = startYear + i;
-                const yearDate = new Date(year, 0, 1);
-                const isSelected = selected && selected.getFullYear() === year;
-                const isCurrentYear = year === currentYear;
-                
-                years.push(
-                    <Button
-                        key={year}
-                        variant={isSelected ? "default" : "outline"}
-                        onClick={() => {
-                            setCurrentDate(yearDate);
-                            setViewMode('months');
-                        }}
-                        className={cn(
-                            "h-10",
-                            isCurrentYear && !isSelected && "border-primary"
-                        )}
-                    >
-                        {year}
-                    </Button>
                 );
+
+            case 'text':
+                return (
+                    <div className="space-y-2">
+                        <Label htmlFor={field.key}>{field.label}</Label>
+                        <Input
+                            id={field.key}
+                            type="text"
+                            value={value as string || ''}
+                            onChange={(e) => handleTempFilterChange(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                        />
+                    </div>
+                );
+
+            case 'number':
+                return (
+                    <div className="space-y-2">
+                        <Label htmlFor={field.key}>{field.label}</Label>
+                        <Input
+                            id={field.key}
+                            type="number"
+                            value={value as string || ''}
+                            onChange={(e) => handleTempFilterChange(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            min={field.min}
+                            max={field.max}
+                            step={field.step}
+                        />
+                    </div>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+    const getFilterDisplayValue = (key: string, value: any): string => {
+        const field = schema.fields.find(f => f.key === key);
+        if (!field) return String(value);
+
+        if (field.type === 'select' || field.type === 'radio') {
+            const option = field.options?.find(opt => opt.value === value);
+            return option?.label || String(value);
+        }
+
+        if (key.endsWith('_start') || key.endsWith('_end')) {
+            // Format tanggal
+            if (value) {
+                const date = new Date(value);
+                return date.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
             }
-            
-            return (
-                <>
-                    <div className="flex items-center justify-between mb-4">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                // Navigasi ke decade sebelumnya
-                                const newDate = new Date(startYear - 20, 0, 1);
-                                setCurrentDate(newDate);
-                            }}
-                            className="px-4"
-                        >
-                            {startYear - 20} - {startYear - 1}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                // Navigasi ke decade berikutnya
-                                const newDate = new Date(startYear + 20, 0, 1);
-                                setCurrentDate(newDate);
-                            }}
-                            className="px-4"
-                        >
-                            {startYear + 20} - {startYear + 39}
-                        </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2">
-                        {years}
-                    </div>
-                </>
-            );
-        };
-        
-        return (
-            <div className="p-3 w-64">
-                {viewMode === 'days' && renderDaysView()}
-                {viewMode === 'months' && renderMonthsView()}
-                {viewMode === 'years' && renderYearsView()}
-                
-                <div className="mt-4 pt-3 border-t flex justify-between">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSelect(undefined)}
-                        className="text-xs"
-                    >
-                        Hapus
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSelect(new Date())}
-                        className="text-xs"
-                    >
-                        Hari ini
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setViewMode('days')}
-                        className="text-xs"
-                    >
-                        Tutup
-                    </Button>
-                </div>
-            </div>
-        );
+        }
+
+        return String(value);
     };
 
     return (
-        <Dialog open={currentOpen} onOpenChange={handleOpenChange}>
-            {triggerText && (
-                <DialogTrigger asChild>
-                    <Button
-                        variant={triggerVariant}
-                        size={triggerSize}
-                        className={cn("flex items-center gap-2", triggerClassName)}
-                    >
-                        {triggerIcon}
-                        {triggerText}
-                    </Button>
-                </DialogTrigger>
-            )}
-            
-            <DialogContent className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                        <Filter className="h-5 w-5" />
-                        {title}
-                    </DialogTitle>
-                </DialogHeader>
+        <>
+            <Dialog open={currentOpen} onOpenChange={handleOpenChange}>
+                {triggerText && (
+                    <DialogTrigger asChild>
+                        <Button
+                            variant={triggerVariant}
+                            size={triggerSize}
+                            className={cn("flex items-center gap-2", triggerClassName)}
+                        >
+                            {triggerIcon}
+                            {triggerText}
+                            {getActiveFilterCount() > 0 && (
+                                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                                    {getActiveFilterCount()}
+                                </Badge>
+                            )}
+                        </Button>
+                    </DialogTrigger>
+                )}
+                
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg">
+                            {schema.title || 'Filter Data'}
+                        </DialogTitle>
+                        {schema.description && (
+                            <DialogDescription>
+                                {schema.description}
+                            </DialogDescription>
+                        )}
+                    </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                    {/* Gender Filter */}
-                    {showGender && (
-                        <div className="space-y-2">
-                            <Label htmlFor="gender">Gender</Label>
-                            <Select
-                                value={filters.gender || 'all'}
-                                onValueChange={(value) => handleFilterChange('gender', value === 'all' ? undefined : value)}
+                    <div className="space-y-6 py-4">
+                        {schema.fields.map((field, index) => (
+                            <React.Fragment key={field.key}>
+                                {renderFilterField(field)}
+                                {index < schema.fields.length - 1 && <Separator />}
+                            </React.Fragment>
+                        ))}
+
+                        {/* Active Filters Summary */}
+                        {showActiveFilters && Object.keys(filters).length > 0 && (
+                            <Card>
+                                <CardContent className="pt-4">
+                                    <h4 className="text-sm font-medium mb-2">Filter Aktif:</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {Object.entries(filters)
+                                            .filter(([key, value]) => 
+                                                value !== undefined && 
+                                                value !== null && 
+                                                value !== '' &&
+                                                value !== (schema.fields.find(f => f.key === key)?.defaultValue || '')
+                                            )
+                                            .map(([key, value]) => {
+                                                const field = schema.fields.find(f => 
+                                                    f.key === key || 
+                                                    (f.type === 'date-range' && (key === `${f.key}_start` || key === `${f.key}_end`))
+                                                );
+                                                
+                                                if (!field) return null;
+
+                                                let displayKey = field.label;
+                                                if (key.endsWith('_start')) {
+                                                    displayKey = `${field.label} (Dari)`;
+                                                } else if (key.endsWith('_end')) {
+                                                    displayKey = `${field.label} (Sampai)`;
+                                                }
+
+                                                return (
+                                                    <Badge key={key} variant="secondary" className="gap-1">
+                                                        {displayKey}: {getFilterDisplayValue(key, value)}
+                                                        <button 
+                                                            onClick={() => {
+                                                                const newFilters = { ...tempFilters };
+                                                                delete newFilters[key];
+                                                                setTempFilters(newFilters);
+                                                            }}
+                                                            className="hover:bg-gray-200 rounded-full p-0.5"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                );
+                                            })}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                    
+                    <DialogFooter className="gap-2">
+                        {showResetButton && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleResetTempFilters}
+                                className="flex-1"
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih Gender" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {genderOptions.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-
-                    {/* Date Range Filter */}
-                    {showDateRange && (
-                        <div className="space-y-4">
-                            <Label>Rentang Tanggal (Tanggal Lahir)</Label>
-                            <div className="grid grid-cols-2 gap-3">
-                                {/* Start Date */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="start-date" className="text-sm">
-                                        Dari Tanggal
-                                    </Label>
-                                    <div className="relative">
-                                        <div className="relative">
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full justify-start text-left font-normal",
-                                                    !filters.startDate && "text-muted-foreground"
-                                                )}
-                                                onClick={() => {
-                                                    setShowStartCalendar(!showStartCalendar);
-                                                    setShowEndCalendar(false);
-                                                }}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {filters.startDate ? (
-                                                    formatDateDisplay(filters.startDate)
-                                                ) : (
-                                                    <span>Pilih tanggal</span>
-                                                )}
-                                            </Button>
-                                            
-                                            {filters.startDate && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                                                    onClick={() => {
-                                                        handleFilterChange('startDate', undefined);
-                                                        if (filters.endDate && filters.endDate < filters.startDate!) {
-                                                            handleFilterChange('endDate', undefined);
-                                                        }
-                                                    }}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                        
-                                        {/* Calendar untuk start date */}
-                                        {showStartCalendar && (
-                                            <div className="absolute z-50 mt-1 left-0 bg-background border rounded-md shadow-lg">
-                                                <EnhancedCalendar
-                                                    selected={filters.startDate}
-                                                    onSelect={(date) => {
-                                                        handleFilterChange('startDate', date);
-                                                        setShowStartCalendar(false);
-                                                        // Jika end date lebih kecil dari start date yang baru, reset end date
-                                                        if (filters.endDate && date && filters.endDate < date) {
-                                                            handleFilterChange('endDate', undefined);
-                                                        }
-                                                    }}
-                                                    maxDate={filters.endDate || new Date()} // Tidak boleh lebih dari end date atau hari ini
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* End Date */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="end-date" className="text-sm">
-                                        Sampai Tanggal
-                                    </Label>
-                                    <div className="relative">
-                                        <div className="relative">
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full justify-start text-left font-normal",
-                                                    !filters.endDate && "text-muted-foreground"
-                                                )}
-                                                onClick={() => {
-                                                    setShowEndCalendar(!showEndCalendar);
-                                                    setShowStartCalendar(false);
-                                                }}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {filters.endDate ? (
-                                                    formatDateDisplay(filters.endDate)
-                                                ) : (
-                                                    <span>Pilih tanggal</span>
-                                                )}
-                                            </Button>
-                                            
-                                            {filters.endDate && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                                                    onClick={() => handleFilterChange('endDate', undefined)}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                        
-                                        {/* Calendar untuk end date */}
-                                        {showEndCalendar && (
-                                            <div className="absolute z-50 mt-1 right-0 bg-background border rounded-md shadow-lg">
-                                                <EnhancedCalendar
-                                                    selected={filters.endDate}
-                                                    onSelect={(date) => {
-                                                        handleFilterChange('endDate', date);
-                                                        setShowEndCalendar(false);
-                                                    }}
-                                                    minDate={filters.startDate} // Tidak boleh kurang dari start date
-                                                    maxDate={new Date()} // Tidak boleh lebih dari hari ini
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Info tanggal */}
-                            <div className="text-xs text-muted-foreground">
-                                <p>• Pilih rentang tanggal lahir member</p>
-                                <p>• Tanggal akhir tidak boleh kurang dari tanggal awal</p>
-                                <p>• Tanggal tidak boleh melebihi hari ini</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Active Filters Summary */}
-                    {(filters.search || filters.gender || filters.startDate || filters.endDate) && (
-                        <Card>
-                            <CardContent className="pt-4">
-                                <h4 className="text-sm font-medium mb-2">Filter Aktif:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {filters.search && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            <span className="flex items-center gap-1">
-                                                <Search className="h-3 w-3" />
-                                                {filters.search}
-                                            </span>
-                                        </Badge>
-                                    )}
-                                    {filters.gender && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            Gender: {genderOptions.find(g => g.value === filters.gender)?.label}
-                                        </Badge>
-                                    )}
-                                    {filters.startDate && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            <span className="flex items-center gap-1">
-                                                <CalendarIcon className="h-3 w-3" />
-                                                {formatDateDisplay(filters.startDate)}
-                                            </span>
-                                        </Badge>
-                                    )}
-                                    {filters.endDate && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            <span className="flex items-center gap-1">
-                                                <CalendarIcon className="h-3 w-3" />
-                                                {formatDateDisplay(filters.endDate)}
-                                            </span>
-                                        </Badge>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-
-                <DialogFooter className="flex justify-between gap-2">
-                    <Button
-                        type="button"
-                        onClick={handleApplyFilters}
-                        className="flex-1"
-                    >
-                        Terapkan Filter
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                                Reset Filter
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsOpen(false)}
+                            className="flex-1"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleApplyFilters}
+                            className="flex-1"
+                        >
+                            Terapkan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
-}
-
-// Hook untuk menggunakan filter modal secara programmatic
-export function useFilterModal() {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const [filters, setFilters] = React.useState<FilterParams>({});
-    const [onApplyCallback, setOnApplyCallback] = React.useState<(filters: FilterParams) => void>();
-
-    const openModal = (currentFilters?: FilterParams, onApply?: (filters: FilterParams) => void) => {
-        if (currentFilters) {
-            setFilters(currentFilters);
-        }
-        if (onApply) {
-            setOnApplyCallback(() => onApply);
-        }
-        setIsOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsOpen(false);
-    };
-
-    const handleApply = (newFilters: FilterParams) => {
-        setFilters(newFilters);
-        if (onApplyCallback) {
-            onApplyCallback(newFilters);
-        }
-        closeModal();
-    };
-
-    const Modal = (props: Omit<FilterModalProps, 'open' | 'onOpenChange' | 'initialFilters' | 'onFilterChange'>) => (
-        <FilterModal
-            open={isOpen}
-            onOpenChange={setIsOpen}
-            initialFilters={filters}
-            onFilterChange={handleApply}
-            {...props}
-        />
-    );
-
-    return {
-        openModal,
-        closeModal,
-        Modal,
-        isOpen,
-        currentFilters: filters,
-    };
 }

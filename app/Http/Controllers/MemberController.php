@@ -35,8 +35,8 @@ class MemberController extends Controller
             'per_page' => 'nullable|integer|in:10,25,50,100',
             'search' => 'nullable|string|max:255',
             'gender' => 'nullable|in:0,1',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',    
+            'birth_date_start' => 'nullable|date',
+            'birth_date_end' => 'nullable|date|after_or_equal:birth_date_start',    
         ]);
 
         if ($validator->fails()) {
@@ -44,7 +44,7 @@ class MemberController extends Controller
         }
 
         try {
-            $filters = $request->only(['search', 'gender', 'start_date', 'end_date']);
+            $filters = $request->only(['search', 'gender', 'birth_date_start', 'birth_date_end']);
             $perPage = $request->get('per_page', 10);
             $page = $request->get('page', 1);
             

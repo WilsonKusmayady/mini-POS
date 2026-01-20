@@ -15,6 +15,8 @@ use App\Repositories\Contracts\SaleRepositoryInterface;
 use App\Repositories\SaleRepository;
 use App\Repositories\Contracts\SupplierRepositoryInterface;
 use App\Repositories\SupplierRepository;
+use Carbon\Carbon;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -43,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
             SaleRepositoryInterface::class,
             SaleRepository::class
         );
+        $this->app->bind(
+            DashboardRepositoryInterface::class,
+            DashboardRepository::class
+        );
     }
 
     /**
@@ -50,6 +56,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Carbon::setLocale('id');
     }
 }

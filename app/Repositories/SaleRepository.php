@@ -16,7 +16,7 @@ class SaleRepository implements SaleRepositoryInterface
 
         // Apply filters
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
+            $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(sales_invoice_code) LIKE ?', ["%{$search}%"])
                     ->orWhereRaw('LOWER(customer_name) LIKE ?', ["%{$search}%"])
@@ -24,8 +24,8 @@ class SaleRepository implements SaleRepositoryInterface
             });
         }
 
-        if (!empty($filters['status'])) {
-            $query->where('sales_status', $filters['status']);
+        if (isset($filters['status'])) {
+            $query->where('sales_status', (bool) $filters['status']);
         }
 
         if (!empty($filters['payment_method'])) {

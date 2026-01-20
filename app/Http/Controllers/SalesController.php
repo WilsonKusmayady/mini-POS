@@ -150,4 +150,55 @@ class SalesController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Cancel sale transaction (restore stock)
+     */
+    public function cancel($invoiceCode)
+    {
+        try {
+            // Cancel sale (restore stock)
+            $this->saleService->cancelSale($invoiceCode);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil dibatalkan'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membatalkan transaksi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete sale permanently
+     */
+    public function destroy($invoiceCode)
+    {
+        try {
+            // Delete sale
+            $deleted = $this->saleService->deleteSale($invoiceCode);
+            
+            if ($deleted) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Transaksi berhasil dihapus'
+                ]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi tidak ditemukan'
+            ], 404);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus transaksi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

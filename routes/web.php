@@ -72,6 +72,10 @@ Route::middleware('auth')->group(function () {
 
     // --- INTERNAL API ROUTES (AJAX Helper) ---
     Route::prefix('api')->group(function () {
+        // Dashboard API
+        Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->name('dashboard.api.stats');
+        Route::get('/dashboard/sales-chart', [DashboardController::class, 'getSalesChartData'])->name('dashboard.api.sales-chart');
+        Route::get('/dashboard/additional-data', [DashboardController::class, 'getAdditionalData'])->name('dashboard.api.additional-data');
         // Members API
         Route::get('/members', [MemberController::class, 'apiIndex'])->name('members.api.index');
         Route::delete('/members/{memberCode}', [MemberController::class, 'destroy'])->name('members.api.destroy');
@@ -79,6 +83,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/members/search', [MemberController::class, 'search'])->name('members.api.search');
         // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
+        Route::delete('/sales/{invoiceCode}', [SalesController::class, 'destroy'])->name('sales.api.destroy');
+        Route::post('/sales/{invoiceCode}/cancel', [SalesController::class, 'cancel'])->name('sales.api.cancel');    
+    
     });
 
 });

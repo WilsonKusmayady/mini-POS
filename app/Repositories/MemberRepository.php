@@ -16,7 +16,7 @@ class MemberRepository implements MemberRepositoryInterface
 
         // Apply filters
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
+            $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                  $q->whereRaw('LOWER(member_name) LIKE ?', ['%' . strtolower($search) . '%'])
                     ->orWhereRaw('LOWER(member_code) LIKE ?', ['%' . strtolower($search) . '%'])
@@ -28,12 +28,12 @@ class MemberRepository implements MemberRepositoryInterface
             $query->where('gender', $filters['gender']);
         }
 
-        if (!empty($filters['start_date'])) {
-        $query->whereDate('birth_date', '>=', $filters['start_date']);
+        if (!empty($filters['birth_date_start'])) {
+        $query->whereDate('birth_date', '>=', $filters['birth_date_start']);
     }
 
-        if (!empty($filters['end_date'])) {
-            $query->whereDate('birth_date', '<=', $filters['end_date']);
+        if (!empty($filters['birth_date_end'])) {
+            $query->whereDate('birth_date', '<=', $filters['birth_date_end']);
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage, ['*'], 'page', $page);

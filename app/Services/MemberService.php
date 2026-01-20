@@ -5,14 +5,17 @@ namespace App\Services;
 use App\Repositories\Contracts\MemberRepositoryInterface;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Services\CodeGeneratorService;
 
 class MemberService
 {
     protected $memberRepository;
+    protected $codeGeneratorService;
 
-    public function __construct(MemberRepositoryInterface $memberRepository)
+    public function __construct(MemberRepositoryInterface $memberRepository, CodeGeneratorService $codeGeneratorService)
     {
         $this->memberRepository = $memberRepository;
+        $this->codeGeneratorService = $codeGeneratorService;
     }
 
     /**
@@ -58,7 +61,7 @@ class MemberService
     public function createMember(array $data)
     {
         // Generate member code
-        $memberCode = $this->generateMemberCode();
+        $memberCode = $this->codeGeneratorService->generateMemberCode();
         
         $memberData = [
             'member_code' => $memberCode,
@@ -149,17 +152,17 @@ class MemberService
             $validated['gender'] = (bool) $filters['gender'];
         }
 
-        if (!empty($filters['start_date'])) {
+        if (!empty($filters['birth_date_start'])) {
         try {
-                $validated['start_date'] = Carbon::parse($filters['start_date'])->toDateString();
+                $validated['birth_date_start'] = Carbon::parse($filters['birth_date_start'])->toDateString();
             } catch (\Exception $e) {
                 // Tanggal tidak valid, abaikan
             }
         }
         
-        if (!empty($filters['end_date'])) {
+        if (!empty($filters['birth_date_end'])) {
             try {
-                $validated['end_date'] = Carbon::parse($filters['end_date'])->toDateString();
+                $validated['birth_date_end'] = Carbon::parse($filters['birth_date_end'])->toDateString();
             } catch (\Exception $e) {
                 // Tanggal tidak valid, abaikan
             }
