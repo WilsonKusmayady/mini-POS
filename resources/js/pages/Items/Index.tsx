@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { 
     Dialog, 
     DialogContent, 
@@ -33,7 +34,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useState, FormEventHandler } from 'react';
 import { SharedData } from '@/types';
 
@@ -41,7 +42,7 @@ import { SharedData } from '@/types';
 import { ViewModal } from '@/components/ui/view-modal'; 
 import { MoneyInput } from '@/components/ui/money-input';
 import { SearchInput } from '@/components/ui/search-input'; 
-import { EditModal } from '@/components/ui/edit-modal'; // Pastikan path ini benar
+import { EditModal } from '@/components/ui/edit-modal';
 
 // --- Interfaces ---
 
@@ -96,10 +97,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     // State Modals
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    
-    // ViewModal State
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
@@ -205,7 +203,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Barang" />
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
+            <div className="flex h-full flex-1 flex-col gap-6 p-6">
                 
                 {/* --- ALERT NOTIFIKASI --- */}
                 {flash.success && (
@@ -223,119 +221,179 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </Alert>
                 )}
 
-                {/* Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                {/* Header Page */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold tracking-tight">Daftar Barang</h2>
-                        <p className="text-muted-foreground">Total {items.total} barang dalam database.</p>
+                        <h1 className="text-3xl font-bold tracking-tight">Daftar Barang</h1>
+                        <p className="text-muted-foreground">Kelola stok dan harga barang (Inventory).</p>
                     </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        
-                        {/* REUSABLE SEARCH COMPONENT */}
-                        <SearchInput 
-                            value={filters?.search || ''}
-                            onSearch={handleSearch}
-                            placeholder="Cari kode atau nama..."
-                        />
-
-                        <Button onClick={openCreateModal}><Plus className="mr-2 h-4 w-4" /> Tambah</Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm">
+                            <Download className="mr-2 h-4 w-4" /> Export
+                        </Button>
+                        <Button onClick={openCreateModal}>
+                            <Plus className="mr-2 h-4 w-4" /> Tambah Barang
+                        </Button>
                     </div>
                 </div>
 
-                {/* Table */}
+                {/* Table Card */}
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle>Inventory</CardTitle>
-                        <CardDescription>Menampilkan halaman {items.current_page} dari {items.last_page}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_code')}>
-                                        <div className="flex items-center">Kode <SortIcon field="item_code" /></div>
-                                    </TableHead>
-                                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_name')}>
-                                        <div className="flex items-center">Nama Barang <SortIcon field="item_name" /></div>
-                                    </TableHead>
-                                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_stock')}>
-                                        <div className="flex items-center">Stok <SortIcon field="item_stock" /></div>
-                                    </TableHead>
-                                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_price')}>
-                                        <div className="flex items-center">Harga Jual <SortIcon field="item_price" /></div>
-                                    </TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {items.data.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                            {filters?.search ? 'Barang tidak ditemukan.' : 'Belum ada data barang.'}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    items.data.map((item) => (
-                                        <TableRow key={item.item_code}>
-                                            <TableCell className="font-medium">{item.item_code}</TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span>{item.item_name}</span>
-                                                    {item.item_stock <= item.item_min_stock && (
-                                                        <span className="text-[10px] text-red-500 font-bold">Stok Menipis!</span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{item.item_stock}</TableCell>
-                                            <TableCell>{formatRupiah(Number(item.item_price))}</TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                            <span className="sr-only">Open menu</span>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                        <DropdownMenuItem onClick={() => openDetailModal(item)}>
-                                                            <Eye className="mr-2 h-4 w-4" /> Detail
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => openEditModal(item)}>
-                                                            <Edit className="mr-2 h-4 w-4" /> Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem 
-                                                            onClick={() => openDeleteModal(item)}
-                                                            className="text-red-600 focus:text-red-600"
-                                                        >
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Hapus
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                    <CardHeader className="space-y-4">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <CardTitle>Inventory</CardTitle>
+                                <CardDescription>Menampilkan {items.from} - {items.to} dari {items.total} barang</CardDescription>
+                            </div>
 
-                        {/* Pagination */}
-                        <div className="flex items-center justify-between pt-4">
-                            <div className="text-sm text-muted-foreground">{items.from} - {items.to} dari {items.total} data</div>
-                            <div className="flex gap-1">
-                                {items.links.map((link, index) => (
-                                    <Link
-                                        key={index}
-                                        href={link.url || '#'}
-                                        preserveScroll
-                                        preserveState
-                                        className={`px-3 py-1 rounded text-sm border ${link.active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'} ${!link.url ? 'opacity-50 pointer-events-none' : ''}`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
+                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
+                                {/* REUSABLE SEARCH COMPONENT */}
+                                <SearchInput 
+                                    value={filters?.search || ''}
+                                    onSearch={handleSearch}
+                                    placeholder="Cari kode atau nama..."
+                                    className="w-full sm:w-64"
+                                />
                             </div>
                         </div>
+                    </CardHeader>
+                    
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_code')}>
+                                            <div className="flex items-center">Kode <SortIcon field="item_code" /></div>
+                                        </TableHead>
+                                        <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_name')}>
+                                            <div className="flex items-center">Nama Barang <SortIcon field="item_name" /></div>
+                                        </TableHead>
+                                        <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_stock')}>
+                                            <div className="flex items-center">Stok <SortIcon field="item_stock" /></div>
+                                        </TableHead>
+                                        <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('item_price')}>
+                                            <div className="flex items-center">Harga Jual <SortIcon field="item_price" /></div>
+                                        </TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {items.data.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                                {filters?.search ? 'Barang tidak ditemukan.' : 'Belum ada data barang.'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        items.data.map((item) => (
+                                            <TableRow key={item.item_code} className="align-top">
+                                                <TableCell className="font-medium py-4">{item.item_code}</TableCell>
+                                                <TableCell className="py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{item.item_name}</span>
+                                                        {item.item_stock <= item.item_min_stock && (
+                                                            <span className="text-[10px] text-red-500 font-bold">Stok Menipis!</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="py-4">
+                                                    <Badge variant={item.item_stock > item.item_min_stock ? "outline" : "destructive"}>
+                                                        {item.item_stock}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-bold py-4">{formatRupiah(Number(item.item_price))}</TableCell>
+                                                <TableCell className="text-right py-4">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                            <DropdownMenuItem onClick={() => openDetailModal(item)}>
+                                                                <Eye className="mr-2 h-4 w-4" /> Detail
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => openEditModal(item)}>
+                                                                <Edit className="mr-2 h-4 w-4" /> Edit
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem 
+                                                                onClick={() => openDeleteModal(item)}
+                                                                className="text-red-600 focus:text-red-600"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* Pagination Footer */}
+                        {items.last_page > 1 && (
+                            <div className="flex items-center justify-between mt-6">
+                                <div className="text-sm text-muted-foreground">
+                                    Menampilkan {items.from} sampai {items.to} dari {items.total} data
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {items.links.map((link, index) => {
+                                        // Render special characters properly
+                                        const label = link.label.replace('&laquo;', '').replace('&raquo;', '').trim();
+                                        
+                                        // Previous / Next Buttons (Handling Labels)
+                                        if (link.label.includes('Previous')) {
+                                            return (
+                                                <Link
+                                                    key={index}
+                                                    href={link.url || '#'}
+                                                    preserveScroll
+                                                    preserveState
+                                                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </Link>
+                                            );
+                                        }
+                                        if (link.label.includes('Next')) {
+                                            return (
+                                                <Link
+                                                    key={index}
+                                                    href={link.url || '#'}
+                                                    preserveScroll
+                                                    preserveState
+                                                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
+                                                >
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Link>
+                                            );
+                                        }
+
+                                        // Number Buttons
+                                        return (
+                                            <Link
+                                                key={index}
+                                                href={link.url || '#'}
+                                                preserveScroll
+                                                preserveState
+                                                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input shadow-sm h-8 w-8 ${
+                                                    link.active 
+                                                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                                                    : "bg-background hover:bg-accent hover:text-accent-foreground"
+                                                }`}
+                                            >
+                                                {label}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -348,51 +406,34 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     triggerText=""
                     size="md"
                 >
+                    {/* ... Content View Modal ... */}
                     {selectedItem ? (
                          <div className="grid gap-4 py-0">
                             {/* Kode Barang */}
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right font-semibold text-muted-foreground">
-                                    Kode
-                                </Label>
-                                <div className="col-span-3 text-sm font-bold">
-                                    {selectedItem.item_code}
-                                </div>
+                                <Label className="text-right font-semibold text-muted-foreground">Kode</Label>
+                                <div className="col-span-3 text-sm font-bold">{selectedItem.item_code}</div>
                             </div>
                             
                             {/* Nama Barang */}
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right font-semibold text-muted-foreground">
-                                    Nama
-                                </Label>
-                                <div className="col-span-3 text-sm font-medium">
-                                    {selectedItem.item_name}
-                                </div>
+                                <Label className="text-right font-semibold text-muted-foreground">Nama</Label>
+                                <div className="col-span-3 text-sm font-medium">{selectedItem.item_name}</div>
                             </div>
 
                             {/* Deskripsi */}
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right font-semibold text-muted-foreground mt-1">
-                                    Deskripsi
-                                </Label>
-                                <div className="col-span-3 text-sm">
-                                    {selectedItem.item_description || '-'}
-                                </div>
+                                <Label className="text-right font-semibold text-muted-foreground mt-1">Deskripsi</Label>
+                                <div className="col-span-3 text-sm">{selectedItem.item_description || '-'}</div>
                             </div>
 
                             {/* Stok */}
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right font-semibold text-muted-foreground">
-                                    Stok
-                                </Label>
+                                <Label className="text-right font-semibold text-muted-foreground">Stok</Label>
                                 <div className="col-span-3">
-                                    <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                        selectedItem.item_stock <= selectedItem.item_min_stock 
-                                            ? "bg-red-100 text-red-800" 
-                                            : "bg-green-100 text-green-800"
-                                    }`}>
+                                    <Badge variant={selectedItem.item_stock > selectedItem.item_min_stock ? "outline" : "destructive"}>
                                         {selectedItem.item_stock} Unit
-                                    </span>
+                                    </Badge>
                                     {selectedItem.item_stock <= selectedItem.item_min_stock && (
                                         <p className="text-[10px] text-red-500 mt-1">* Stok di bawah batas minimum ({selectedItem.item_min_stock})</p>
                                     )}
@@ -401,12 +442,8 @@ export default function ItemIndex({ items, filters }: IndexProps) {
 
                             {/* Harga Jual */}
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right font-semibold text-muted-foreground">
-                                    Harga Jual
-                                </Label>
-                                <div className="col-span-3 text-sm font-bold text-primary">
-                                    {formatRupiah(Number(selectedItem.item_price))}
-                                </div>
+                                <Label className="text-right font-semibold text-muted-foreground">Harga Jual</Label>
+                                <div className="col-span-3 text-sm font-bold text-primary">{formatRupiah(Number(selectedItem.item_price))}</div>
                             </div>
                         </div>
                     ) : (
@@ -438,7 +475,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT (IMPLEMENTASI BARU DENGAN COMPONENT REUSABLE) --- */}
+                {/* --- MODAL EDIT --- */}
                 <EditModal
                     open={isEditOpen}
                     onOpenChange={setIsEditOpen}
@@ -447,53 +484,14 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     loading={processing}
                     saveLabel="Update"
                 >
-                    <div className="space-y-2">
-                        <Label>Nama Barang</Label>
-                        <Input 
-                            value={data.item_name} 
-                            onChange={(e) => setData('item_name', e.target.value)} 
-                            required 
-                        />
-                    </div>
-                    
-                    <div className="space-y-2">
-                        <Label>Deskripsi</Label>
-                        <Input 
-                            value={data.item_description} 
-                            onChange={(e) => setData('item_description', e.target.value)} 
-                        />
-                    </div>
-                    
+                    <div className="space-y-2"><Label>Nama Barang</Label><Input value={data.item_name} onChange={(e) => setData('item_name', e.target.value)} required /></div>
+                    <div className="space-y-2"><Label>Deskripsi</Label><Input value={data.item_description} onChange={(e) => setData('item_description', e.target.value)} /></div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Stok</Label>
-                            {/* Stok readOnly saat edit, biasanya stok diubah lewat transaksi pembelian/penjualan */}
-                            <Input 
-                                type="number" 
-                                value={data.item_stock} 
-                                readOnly 
-                                className="bg-muted text-muted-foreground cursor-not-allowed" 
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Min. Stok</Label>
-                            <Input 
-                                type="number" 
-                                value={data.item_min_stock} 
-                                onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} 
-                                required 
-                            />
-                        </div>
+                        <div className="space-y-2"><Label>Stok</Label><Input type="number" value={data.item_stock} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" /></div>
+                        <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                     </div>
-                    
-                    <div className="space-y-2">
-                        <Label>Harga Jual</Label>
-                        <MoneyInput
-                            placeholder="Rp 0"
-                            value={data.item_price}
-                            onValueChange={(values) => setData('item_price', values.floatValue || 0)}
-                            required
-                        />
+                    <div className="space-y-2"><Label>Harga Jual</Label>
+                        <MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required />
                     </div>
                 </EditModal>
 
@@ -502,15 +500,11 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Hapus Barang?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Barang <b>{selectedItem?.item_name}</b> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
-                            </AlertDialogDescription>
+                            <AlertDialogDescription>Barang <b>{selectedItem?.item_name}</b> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
-                                Hapus
-                            </AlertDialogAction>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>Hapus</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
