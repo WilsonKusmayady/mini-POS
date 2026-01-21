@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchInput } from '@/components/ui/search-input';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -104,13 +105,8 @@ export default function MembersIndex() {
 
     // Debounce search input
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-            setCurrentPage(1);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [search]);
+        fetchMembers();
+    }, [currentPage, perPage, search, activeFilters]);
 
     // Fetch members data dengan filter
     const fetchMembers = async () => {
@@ -121,7 +117,7 @@ export default function MembersIndex() {
             const params = new URLSearchParams({
                 page: currentPage.toString(),
                 per_page: perPage,
-                search: debouncedSearch,
+                search: search,
                 ...filterParams
             });
 
@@ -442,26 +438,12 @@ export default function MembersIndex() {
                 <div className="w-full space-y-3">
                     {/* Search Bar */}
                     <div className="flex flex-col sm:flex-row gap-3 w-full">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Cari nama member atau kode member..."
-                                className="pl-9 w-full"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                            {search && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                                    onClick={() => setSearch('')}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            )}
-                        </div>
+                        <SearchInput
+                            value={search}
+                            onSearch={setSearch} // Component ini otomatis debounce
+                            placeholder="Cari nama, kode member, atau no telepon..."
+                            className="flex-1"
+                        />
                         
                         {/* Filter Button - Full width on mobile */}
                         <FilterModal

@@ -19,6 +19,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
 import { salesFilterSchema, convertSalesFiltersToParams } from '@/filter-schemas/sales.shema';
+import { SearchInput } from '@/components/ui/search-input';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -451,10 +452,7 @@ export default function SalesHistory({
 
   // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => {
       fetchSales(1);
-    }, 500);
-    return () => clearTimeout(timer);
   }, [searchInput]);
 
   // Fetch when perPage changes
@@ -600,26 +598,12 @@ export default function SalesHistory({
         <div className="w-full space-y-3">
           {/* Search Bar */}
           <div className="flex flex-col sm:flex-row gap-3 w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari kode invoice atau nama pelanggan..."
-                className="pl-9 w-full"
+            <SearchInput
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-              {searchInput && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                  onClick={() => setSearchInput('')}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
+                onSearch={setSearchInput}
+                placeholder="Cari kode invoice, pelanggan, atau kasir..."
+                className="flex-1"
+            />
             
             {/* Filter Modal Trigger */}
             <FilterModal

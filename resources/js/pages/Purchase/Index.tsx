@@ -15,6 +15,8 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { PurchaseFilterModal, type PurchaseFilterParams } from '@/components/purchase-filter-modal';
 
+import { SearchInput } from '@/components/ui/search-input';
+
 const breadcrumbs: BreadcrumbItem[] = [
   {
     title: 'Dashboard',
@@ -298,20 +300,12 @@ export default function PurchaseIndex({ suppliers_list, users_list }: PurchaseIn
 
                     {/* Controls: Search & Filter */}
                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
-                         <div className="relative w-full sm:w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Cari invoice..." 
-                                className="pl-9 h-9"
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                            />
-                            {searchInput && (
-                                <button onClick={() => setSearchInput('')} className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground">
-                                    <X className="h-4 w-4" />
-                                </button>
-                            )}
-                        </div>
+                        <SearchInput
+                            value={searchInput}
+                            onSearch={(val) => setSearchInput(val)} // Component ini sudah punya debounce bawaan
+                            placeholder="Cari Invoice, Supplier, atau User..." // Placeholder spesifik untuk halaman ini
+                            className="w-full sm:w-64"
+                        />
                         <Button variant="outline" size="sm" className="h-9 w-full sm:w-auto" onClick={() => setFilterModalOpen(true)}>
                             <Filter className="mr-2 h-4 w-4" /> Filter
                         </Button>

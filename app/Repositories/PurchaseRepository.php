@@ -32,9 +32,28 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
 
         // Search Filter
         if (!empty($filters['search'])) {
-            $query->where('purchase_invoice_number', 'ilike', '%' . $filters['search'] . '%');
+            $search = $filters['search'];
+            
+            $query->where(function($q) use ($search) {
+                // A. Cari berdasarkan No Invoice
+                $q->where('purchase_invoice_number', 'ilike', '%' . $search . '%')
+                
+                // B. Cari berdasarkan Nama Supplier (Relasi)
+                ->orWhereHas('supplier', function($sq) use ($search) {
+                    $sq->where('supplier_name', 'ilike', '%' . $search . '%');
+                })
+                
+                // C. Cari berdasarkan Nama User/Operator (Relasi)
+                ->orWhereHas('user', function($uq) use ($search) {
+                    $uq->where('user_name', 'ilike', '%' . $search . '%');
+                });
 
-        }
+                // D. (Opsional) Cari berdasarkan Tanggal jika input format tanggal (YYYY-MM-DD)
+                if (preg_match("/^\d{4}-\d{2}-\d{2}$/", $search)) {
+                   $q->orWhereDate('purchase_date', $search);
+                }
+            });       
+        } 
 
         // Date Range Filter
         if(!empty($filters['start_date'])) {
