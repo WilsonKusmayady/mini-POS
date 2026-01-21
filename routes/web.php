@@ -46,10 +46,12 @@ Route::middleware('auth')->group(function () {
     Route::prefix('members')->name('members.')->group(function () {
         Route::get('/', [MemberController::class, 'index'])->name('index');
         Route::get('/create', [MemberController::class, 'create'])->name('create');
+        Route::get('/export', [MemberController::class, 'export'])->name('export');
         Route::post('/', [MemberController::class, 'store'])->name('store');
         Route::get('/{memberCode}', [MemberController::class, 'show'])->name('show');
         Route::get('/{memberCode}/edit', [MemberController::class, 'edit'])->name('edit');
-        Route::put('/{memberCode}', [MemberController::class, 'update'])->name('update');
+        Route::put('/{memberCode}', [MemberController::class, 'apiUpdate'])->name('update');
+        // Route::put('/{memberCode}', [MemberController::class, 'update'])->name('update');
         // Route::get('/search', [MemberController::class, 'search']);
     });
 
@@ -68,6 +70,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', function () {
             return Inertia::render('sales/create');
         })->name('create');
+        Route::get('/{invoiceCode}/nota', [SalesController::class, 'showNota'])->name('sales.nota');
+        Route::get('/export', [SalesController::class, 'export'])->name('export');    
     });
 
     // --- INTERNAL API ROUTES (AJAX Helper) ---
@@ -83,11 +87,12 @@ Route::middleware('auth')->group(function () {
         Route::delete('/members/{memberCode}', [MemberController::class, 'destroy'])->name('members.api.destroy');
         Route::get('/members/statistics', [MemberController::class, 'getStatistics'])->name('members.api.statistics');
         Route::get('/members/search', [MemberController::class, 'search'])->name('members.api.search');
-        
+        Route::get('/members/export', [MemberController::class, 'apiExport'])->name('members.api.export');
         // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
         Route::delete('/sales/{invoiceCode}', [SalesController::class, 'destroy'])->name('sales.api.destroy');
         Route::post('/sales/{invoiceCode}/cancel', [SalesController::class, 'cancel'])->name('sales.api.cancel');    
+        Route::get('/sales/export', [SalesController::class, 'apiExport'])->name('sales.api.export');
     });
 
 });

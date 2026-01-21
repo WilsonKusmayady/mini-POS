@@ -15,6 +15,8 @@ class MemberSeeder extends Seeder
 
         $totalMembers = 50;
 
+        $statuses = ['active', 'inactive'];
+
         for ($i = 0; $i < $totalMembers; $i++) {
             Member::create([
                 'member_code' => $codeGenerator->generateMemberCode(),
@@ -28,7 +30,7 @@ class MemberSeeder extends Seeder
                     ->subYears(rand(18, 50))
                     ->subDays(rand(0, 365))
                     ->toDateString(),
-
+                'status' => fake()->randomElement($statuses),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

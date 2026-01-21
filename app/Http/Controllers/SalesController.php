@@ -6,6 +6,7 @@ use App\Services\SalesService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Response;
 
 class SalesController extends Controller
 {
@@ -150,6 +151,46 @@ class SalesController extends Controller
             ], 500);
         }
     }
+    public function showNota(string $invoiceCode)
+    {
+        try {
+            $sale = $this->saleService->getSaleForNota($invoiceCode);
+            // dd($sale);
+            return Inertia::render('sales/nota', [
+                'sale' => [
+                    'sales_invoice_code' => $sale->sales_invoice_code,
+                    'customer_name' => $sale->customer_name,
+                    'member_code' => $sale->member_code,
+                    'member_name' => $sale->member?->member_name,
+                    'sales_date' => $sale->sales_date,
+
+                    'sales_subtotal' => (float) $sale->sales_subtotal,
+                    'sales_discount_value' => (float) $sale->sales_discount_value,
+                    'sales_hasil_discount_value' => (float) $sale->sales_hasil_discount_value,
+                    'sales_grand_total' => (float) $sale->sales_grand_total,
+                    'sales_payment_method' => $sale->sales_payment_method,
+
+                    'items' => $sale->sales_details->map(fn ($detail) => [
+                        'item_name' => $detail->item->item_name ?? 'Unknown Item',
+                        'sales_quantity' => $detail->sales_quantity,
+                        'sell_price' => (float) $detail->sell_price,
+                        'sales_discount_item' => (float) $detail->sales_discount_item,
+                        'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
+                        'total_item_price' => (float) $detail->total_item_price,
+                    ])->toArray(),
+                ],
+                'companyInfo' => [
+                    'name' => env('COMPANY_NAME', 'TOKO RETAIL'),
+                    'address' => env('COMPANY_ADDRESS', 'Jl. Contoh No. 123'),
+                    'phone' => env('COMPANY_PHONE', '0812-3456-7890'),
+                    'footerNote' => 'Terima kasih telah berbelanja',
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('sales.index')
+                ->with('error', 'Nota tidak ditemukan: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Cancel sale transaction (restore stock)
@@ -200,5 +241,190 @@ class SalesController extends Controller
                 'message' => 'Gagal menghapus transaksi: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function export(Request $request)
+    {
+        // Validate query parameters
+        $validator = Validator::make($request->all(), [
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|integer|in:0,1',
+            'payment_method' => 'nullable|string|in:cash,debit,qris',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator);
+        }
+
+        $filters = $request->only(['search', 'status', 'payment_method', 'start_date', 'end_date']);
+        
+        try {
+            $exportData = $this->saleService->getExportData($filters);
+            
+            // Generate CSV content
+            $csvContent = $this->generateCSV($exportData, $filters);
+            
+            $filename = 'sales_export_' . date('Y-m-d_His') . '.csv';
+            
+            return Response::make($csvContent, 200, [
+                'Content-Type' => 'text/csv; charset=utf-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+            
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal export data: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * API Export for AJAX requests
+     */
+    public function apiExport(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|integer|in:0,1',
+            'payment_method' => 'nullable|string|in:cash,debit,qris',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $filters = $request->only(['search', 'status', 'payment_method', 'start_date', 'end_date']);
+            $exportData = $this->saleService->getExportData($filters);
+            
+            // Generate CSV content
+            $csvContent = $this->generateCSV($exportData, $filters);
+            
+            $filename = 'sales_export_' . date('Y-m-d_His') . '.csv';
+            
+            return response()->json([
+                'success' => true,
+                'data' => base64_encode($csvContent),
+                'filename' => $filename
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to export sales: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate CSV content
+     */
+    private function generateCSV(array $data, array $filters = []): string
+    {
+        $output = fopen('php://temp', 'r+');
+        
+        // Header with filter information
+        fputcsv($output, ['LAPORAN PENJUALAN']);
+        fputcsv($output, ['Tanggal Export', date('d/m/Y H:i:s')]);
+        
+        // Filter information
+        if (!empty($filters)) {
+            fputcsv($output, ['']);
+            fputcsv($output, ['FILTER YANG DIGUNAKAN:']);
+            
+            if (!empty($filters['search'])) {
+                fputcsv($output, ['Pencarian', $filters['search']]);
+            }
+            
+            if (isset($filters['status'])) {
+                $statusText = $filters['status'] == 1 ? 'Paid' : 'Cancelled';
+                fputcsv($output, ['Status', $statusText]);
+            }
+            
+            if (!empty($filters['payment_method'])) {
+                $paymentText = match($filters['payment_method']) {
+                    'cash' => 'Cash',
+                    'debit' => 'Debit Card',
+                    'qris' => 'QRIS',
+                    default => $filters['payment_method']
+                };
+                fputcsv($output, ['Metode Pembayaran', $paymentText]);
+            }
+            
+            if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+                fputcsv($output, ['Periode', $filters['start_date'] . ' - ' . $filters['end_date']]);
+            } elseif (!empty($filters['start_date'])) {
+                fputcsv($output, ['Dari Tanggal', $filters['start_date']]);
+            } elseif (!empty($filters['end_date'])) {
+                fputcsv($output, ['Sampai Tanggal', $filters['end_date']]);
+            }
+        }
+        
+        fputcsv($output, ['']);
+        fputcsv($output, ['']);
+        
+        // Main data headers
+        $headers = [
+            'No.',
+            'Kode Invoice',
+            'Tanggal',
+            'Waktu',
+            'Pelanggan',
+            'Kode Member',
+            'Metode Pembayaran',
+            'Status',
+            'Subtotal',
+            'Diskon',
+            'Grand Total',
+            'Jumlah Barang',
+            // 'Kasir'
+        ];
+        
+        fputcsv($output, $headers);
+        
+        // Data rows
+        $rowNumber = 1;
+        foreach ($data as $sale) {
+            $row = [
+                $rowNumber++,
+                $sale['invoice_code'],
+                $sale['date'],
+                $sale['time'],
+                $sale['customer_name'],
+                $sale['member_code'],
+                $sale['payment_method'],
+                $sale['status'],
+                $sale['subtotal'],
+                $sale['discount_total'],
+                $sale['grand_total'],
+                $sale['items_count'],
+                // $sale['cashier']
+            ];
+            
+            fputcsv($output, $row);
+        }
+        
+        // Add summary
+        fputcsv($output, ['']);
+        fputcsv($output, ['SUMMARY']);
+        fputcsv($output, ['Total Transaksi', count($data)]);
+        
+        $totalRevenue = array_sum(array_map(function($sale) {
+            return (float) str_replace(['.', ','], '', $sale['grand_total']);
+        }, $data));
+        
+        $totalDiscount = array_sum(array_map(function($sale) {
+            return (float) str_replace(['.', ','], '', $sale['discount_total']);
+        }, $data));
+        
+        fputcsv($output, ['Total Pendapatan', 'Rp ' . number_format($totalRevenue, 0, ',', '.')]);
+        fputcsv($output, ['Total Diskon', 'Rp ' . number_format($totalDiscount, 0, ',', '.')]);
+        
+        rewind($output);
+        $csvContent = stream_get_contents($output);
+        fclose($output);
+        
+        return $csvContent;
     }
 }

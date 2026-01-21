@@ -99,6 +99,14 @@ class SaleRepository implements SaleRepositoryInterface
             ->first();
     }
 
+    public function getSaleForNota(string $invoiceCode)
+    {
+        return Sales::with(['sales_details.item', 'user', 'member'])
+            ->where('sales_invoice_code', $invoiceCode)
+            ->first();
+    }
+
+
     public function createSale(array $data)
     {
         return Sales::create($data);

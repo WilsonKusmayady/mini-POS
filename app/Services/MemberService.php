@@ -70,6 +70,7 @@ class MemberService
             'address' => $data['address'],
             'gender' => (bool) $data['gender'],
             'birth_date' => Carbon::parse($data['birth_date'])->toDateString(),
+            'status' => 'active', // Tambahkan status
         ];
 
         return $this->memberRepository->create($memberData);
@@ -94,6 +95,11 @@ class MemberService
             'birth_date' => Carbon::parse($data['birth_date'])->toDateString(),
         ];
 
+        // Tambahkan status jika ada
+        if (isset($data['status'])) {
+            $updateData['status'] = $data['status'];
+        }
+
         return $this->memberRepository->update($memberCode, $updateData);
     }
 
@@ -102,18 +108,32 @@ class MemberService
      */
     public function deleteMember(string $memberCode)
     {
-        $member = $this->memberRepository->findByCode($memberCode);
+        $member = $this->memberRepository->findByCodeWithSalesCount($memberCode);
         
         if (!$member) {
-            throw new \Exception('Member not found');
+            throw new \Exception('Member tidak ditemukan');
         }
 
-        // Check if member has sales
-        if ($member->sales && $member->sales->count() > 0) {
-            throw new \Exception('Cannot delete member with existing sales records');
+        // Check if member has sales transactions
+        if ($member->sales_count > 0) {
+            throw new \Exception('Tidak dapat menghapus member yang pernah melakukan transaksi');
         }
 
         return $this->memberRepository->delete($memberCode);
+    }
+
+    /**
+     * Toggle member status
+     */
+    public function toggleStatus(string $memberCode, string $status)
+    {
+        $member = $this->memberRepository->findByCode($memberCode);
+        
+        if (!$member) {
+            throw new \Exception('Member tidak ditemukan');
+        }
+
+        return $this->memberRepository->update($memberCode, ['status' => $status]);
     }
 
     /**
@@ -143,6 +163,10 @@ class MemberService
     private function validateFilters(array $filters): array
     {
         $validated = [];
+
+        if (isset($filters['status']) && in_array($filters['status'], ['active', 'inactive'])) {
+            $validated['status'] = $filters['status'];
+        }
         
         if (!empty($filters['search'])) {
             $validated['search'] = trim($filters['search']);
@@ -153,7 +177,7 @@ class MemberService
         }
 
         if (!empty($filters['birth_date_start'])) {
-        try {
+            try {
                 $validated['birth_date_start'] = Carbon::parse($filters['birth_date_start'])->toDateString();
             } catch (\Exception $e) {
                 // Tanggal tidak valid, abaikan
@@ -183,6 +207,7 @@ class MemberService
             'address' => $member->address,
             'gender' => $member->gender,
             'birth_date' => $member->birth_date,
+            'status' => $member->status,
             'created_at' => $member->created_at->toISOString(),
             'updated_at' => $member->updated_at->toISOString(),
         ];
@@ -210,10 +235,11 @@ class MemberService
 
         return $formatted;
     }
+    
     /**
      * Search members for combobox
      */
-        public function searchMembers(?string $search = null, int $perPage = 20, int $page = 1)
+    public function searchMembers(?string $search = null, int $perPage = 20, int $page = 1)
     {
         // Konversi null ke string kosong
         $search = $search ?? '';
@@ -230,5 +256,46 @@ class MemberService
         ]);
         
         return $this->memberRepository->search($filters, $perPage, $page);
+    }
+
+     public function getExportData(array $filters = []): array
+    {
+        $validatedFilters = $this->validateFilters($filters);
+        
+        // Get all members for export (gunakan limit besar atau tanpa limit)
+        $members = $this->memberRepository->getPaginated($validatedFilters);
+        
+        $formattedData = [];
+        
+        foreach ($members as $member) {
+            $formattedMember = $this->formatMemberForExport($member);
+            $formattedData[] = $formattedMember;
+        }
+        
+        return $formattedData;
+    }
+
+    /**
+     * Format member for export
+     */
+    private function formatMemberForExport($member): array
+    {
+        $birthDate = Carbon::parse($member->birth_date);
+        $createdAt = Carbon::parse($member->created_at);
+        $age = $createdAt->diffInYears($birthDate);
+
+        return [
+            'member_code' => $member->member_code,
+            'member_name' => $member->member_name,
+            'phone_number' => $member->phone_number,
+            'address' => $member->address,
+            'gender' => $member->gender ? 'Pria' : 'Wanita',
+            'birth_date' => $birthDate->format('d/m/Y'),
+            'age' => $age,
+            'status' => $member->status === 'active' ? 'Aktif' : 'Nonaktif',
+            'created_date' => $createdAt->format('d/m/Y'),
+            // 'created_time' => $createdAt->format('H:i:s'),
+            'updated_at' => $member->updated_at ? Carbon::parse($member->updated_at)->format('d/m/Y H:i:s') : '-',
+        ];
     }
 }

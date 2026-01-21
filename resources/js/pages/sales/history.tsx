@@ -1,9 +1,9 @@
 import AppLayout from '@/layouts/app-layout';
 import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, usePage, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, Calendar, X } from 'lucide-react';
+import { Plus, Pencil, Download, Printer, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
 import { salesFilterSchema, convertSalesFiltersToParams } from '@/filter-schemas/sales.shema';
+import { PrintNota } from '@/components/nota/PrintNota';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -35,6 +36,10 @@ interface Sale {
   sales_invoice_code: string;
   customer_name: string
   member_code: string | null;
+  member?: {
+    member_code: string
+    member_name: string
+  } | null
   sales_date: string;
   sales_subtotal: number;
   sales_discount_value: number;
@@ -85,6 +90,7 @@ export default function SalesHistory({
   // State untuk data
   const [sales, setSales] = useState<Sale[]>(Array.isArray(initialSales) ? initialSales : []);
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [pagination, setPagination] = useState(initialPagination || {
     current_page: 1,
     per_page: 10,
@@ -181,6 +187,76 @@ export default function SalesHistory({
     }
   };
 
+  // ✅ Handle Export CSV
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      // Konversi filter ke format yang sesuai dengan backend
+      const filterParams = convertSalesFiltersToParams(activeFilters);
+      
+      const params = new URLSearchParams({
+        ...(searchInput && { search: searchInput }),
+        ...filterParams
+      });
+
+      // Gunakan window.location untuk download file CSV
+      window.location.href = `/sales/export?${params}`;
+      
+    } catch (error: any) {
+      console.error('❌ Error exporting sales:', error);
+      toast.error('Gagal export data penjualan');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // ✅ Alternative: Export menggunakan AJAX (jika ingin menampilkan loading)
+  const handleExportAjax = async () => {
+    setExportLoading(true);
+    try {
+      // Konversi filter ke format yang sesuai dengan backend
+      const filterParams = convertSalesFiltersToParams(activeFilters);
+      
+      const params = new URLSearchParams({
+        ...(searchInput && { search: searchInput }),
+        ...filterParams
+      });
+
+      const response = await axios.get(`/api/sales/export?${params}`, {
+        responseType: 'blob' // Penting untuk menerima file
+      });
+      
+      // Buat URL untuk file blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Dapatkan filename dari header atau buat default
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'sales_export.csv';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch.length === 2) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast.success('Export berhasil! File sedang diunduh');
+      
+    } catch (error: any) {
+      console.error('❌ Error exporting sales:', error);
+      toast.error('Gagal export data penjualan');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -274,26 +350,26 @@ export default function SalesHistory({
               ...filterParams
           });
 
-          console.log('🔍 Fetching sales with params:', {
-              search: searchInput,
-              ...filterParams,
-              page,
-              per_page: perPage
-          });
+          // console.log('🔍 Fetching sales with params:', {
+          //     search: searchInput,
+          //     ...filterParams,
+          //     page,
+          //     per_page: perPage
+          // });
           
           const url = `/api/sales?${params}`;
-          console.log('🌐 API URL:', url);
+          // console.log('🌐 API URL:', url);
           
           const response = await axios.get(url);
           
-          console.log('✅ Sales fetched successfully:', {
-              total: response.data.total || 0,
-              count: response.data.data?.length || 0,
-              filtersUsed: {
-                  search: searchInput,
-                  ...filterParams
-              }
-          });
+          // console.log('✅ Sales fetched successfully:', {
+          //     total: response.data.total || 0,
+          //     count: response.data.data?.length || 0,
+          //     filtersUsed: {
+          //         search: searchInput,
+          //         ...filterParams
+          //     }
+          // });
           
           if (response.data && response.data.data) {
               setSales(Array.isArray(response.data.data) ? response.data.data : []);
@@ -583,10 +659,26 @@ export default function SalesHistory({
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export
+            {/* ✅ Export Button */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleExport}
+              disabled={exportLoading || loading}
+            >
+              {exportLoading ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></span>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </>
+              )}
             </Button>
+            
             <Button asChild>
               <Link href={appRoutes.sales.create()}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -858,11 +950,16 @@ export default function SalesHistory({
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="font-medium">
-                              {sale?.customer_name || (sale?.member_code ? `Member: ${sale.member_code}` : '-')}
+                              {sale?.customer_name
+                                ? sale.customer_name
+                                : sale?.member
+                                ? sale.member.member_name
+                                : '-'}
                             </span>
-                            {sale?.member_code && (
+
+                            {sale?.member && (
                               <span className="text-xs text-muted-foreground">
-                                Kode: {sale.member_code}
+                                Kode: {sale.member.member_code}
                               </span>
                             )}
                           </div>
@@ -906,6 +1003,19 @@ export default function SalesHistory({
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
+                              
+                              <DropdownMenuItem asChild>
+                                <Link
+                                  href={appRoutes.sales.nota(sale.sales_invoice_code)}
+                                  className="flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Printer className="mr-2 h-4 w-4" />
+                                  <span>Print</span>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              
+                              {/* Menu Delete */}
                               <DropdownMenuItem 
                                 onClick={() => handleDelete(sale)}
                                 className="text-red-600"
@@ -913,6 +1023,8 @@ export default function SalesHistory({
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                               </DropdownMenuItem>
+                              
+                              {/* Menu Cancel */}
                               {sale.sales_status && (
                                 <>
                                   <DropdownMenuSeparator />

@@ -3,7 +3,7 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Plus, Download, Filter, Search, Calendar, User, Phone, MapPin, Cake, Edit, Trash2, MoreVertical, ChevronLeft, ChevronRight, X, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,7 @@ interface Member {
     address: string;
     gender: boolean; // 1 = Laki-laki, 0 = Perempuan
     birth_date: string;
+    status: 'active' | 'inactive';
     created_at: string;
     updated_at: string;
     total_transactions?: number;
@@ -80,6 +81,7 @@ export default function MembersIndex() {
     const [members, setMembers] = useState<Member[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [exportLoading, setExportLoading] = useState(false); // ✅ Tambah state untuk export loading
     const [search, setSearch] = useState('');
     const [perPage, setPerPage] = useState<string>('10');
     const [currentPage, setCurrentPage] = useState(1);
@@ -96,7 +98,7 @@ export default function MembersIndex() {
         phone_number: '',
         address: '',
         gender: '1',
-        birth_date: ''
+        birth_date: '',
     });
     const [isCreatingMember, setIsCreatingMember] = useState(false);
     
@@ -146,6 +148,313 @@ export default function MembersIndex() {
             toast.error('Gagal memuat data member');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // ✅ Handle Export CSV
+     const handleExport = async () => {
+        console.log('🔄 Export button clicked');
+        console.log('📊 Current filters:', {
+            search,
+            activeFilters,
+            convertedFilters: convertMembersFiltersToParams(activeFilters)
+        });
+        
+        setExportLoading(true);
+        try {
+            // Konversi filter ke format yang sesuai dengan backend
+            const filterParams = convertMembersFiltersToParams(activeFilters);
+            
+            // Build query params dengan type safety
+            const params = new URLSearchParams();
+            
+            // Tambahkan search jika ada
+            if (search && search.trim() !== '') {
+                params.append('search', search.trim());
+                console.log('🔍 Search param:', search);
+            }
+            
+            // Tambahkan filter params dengan pengecekan null/undefined
+            Object.entries(filterParams).forEach(([key, value]) => {
+                // Type guard untuk memastikan value tidak null/undefined
+                if (value !== undefined && value !== null && value !== '') {
+                    params.append(key, String(value)); // Konversi ke string
+                    console.log(`📝 Filter param: ${key}=${value}`);
+                }
+            });
+            
+            const queryString = params.toString();
+            const exportUrl = `${appRoutes.members.export()}${queryString ? '?' + queryString : ''}`;
+            
+            console.log('🌐 Export URL:', exportUrl);
+            console.log('📤 Making export request...');
+            
+            // Gunakan fetch untuk download file tanpa page refresh
+            const response = await fetch(exportUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'text/csv',
+                },
+                credentials: 'include' // Include cookies
+            });
+            
+            console.log('📨 Response status:', response.status);
+            console.log('📨 Response status text:', response.statusText);
+            
+            // Log headers
+            const headers: Record<string, string> = {};
+            response.headers.forEach((value, key) => {
+                headers[key] = value;
+            });
+            console.log('📨 Response headers:', headers);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Export failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: errorText.substring(0, 500) // Batasi log
+                });
+                toast.error(`Export gagal: ${response.status} ${response.statusText}`);
+                return;
+            }
+            
+            // Dapatkan blob dari response
+            const blob = await response.blob();
+            console.log('📄 Blob created:', {
+                size: blob.size,
+                type: blob.type
+            });
+            
+            // Buat URL untuk blob
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Dapatkan filename dari header atau buat default
+            let filename = 'members_export.csv';
+            const contentDisposition = response.headers.get('content-disposition');
+            
+            if (contentDisposition) {
+                console.log('📄 Content-Disposition header:', contentDisposition);
+                // Mencocokkan filename dari header
+                const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i) ||
+                                     contentDisposition.match(/filename="([^"]+)"/i) ||
+                                     contentDisposition.match(/filename=([^;]+)/i);
+                
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = decodeURIComponent(filenameMatch[1].trim());
+                    console.log('📄 Extracted filename:', filename);
+                }
+            }
+            
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            
+            // Clean up URL
+            window.URL.revokeObjectURL(url);
+            
+            console.log('✅ Export completed successfully');
+            toast.success(`Export berhasil! File "${filename}" sedang diunduh`);
+            
+        } catch (error: any) {
+            console.error('❌ Error exporting members:', error);
+            
+            // Type-safe error handling
+            if (error instanceof Error) {
+                console.error('❌ Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                toast.error(`Gagal export data member: ${error.message}`);
+            } else {
+                console.error('❌ Unknown error:', error);
+                toast.error('Gagal export data member: Terjadi kesalahan tidak diketahui');
+            }
+        } finally {
+            setExportLoading(false);
+        }
+    };
+
+    // ✅ Alternative: Export menggunakan axios dengan type safety
+    const handleExportAxios = async () => {
+    console.log('🔄 Export button clicked (Axios version)');
+    
+    setExportLoading(true);
+    try {
+        // Konversi filter ke format yang sesuai dengan backend
+        const filterParams = convertMembersFiltersToParams(activeFilters);
+        
+        // Build query params dengan type safety
+        const params: Record<string, string> = {};
+        
+        if (search && search.trim() !== '') {
+            params.search = search.trim();
+            console.log('🔍 Search param:', search);
+        }
+        
+        Object.entries(filterParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                params[key] = String(value);
+                console.log(`📝 Filter param: ${key}=${value}`);
+            }
+        });
+        
+        // GUNAKAN ROUTE YANG BENAR
+        const exportUrl = appRoutes.members.export(); // Pastikan ini route yang benar
+        
+        console.log('🌐 Export URL:', exportUrl);
+        console.log('📤 Request params:', params);
+        
+        // Gunakan fetch untuk menghindari double reading
+        const response = await fetch(`${exportUrl}?${new URLSearchParams(params)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'text/csv',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+        });
+        
+        console.log('📨 Fetch response:', {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries([...response.headers])
+        });
+        
+        if (!response.ok) {
+            // Coba baca error message
+            const errorText = await response.text();
+            console.error('❌ Export failed:', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText.substring(0, 500)
+            });
+            
+            // Parse error jika JSON
+            try {
+                const errorJson = JSON.parse(errorText);
+                toast.error(`Export gagal: ${errorJson.error || errorJson.message || 'Unknown error'}`);
+            } catch {
+                toast.error(`Export gagal: ${response.status} ${response.statusText}`);
+            }
+            return;
+        }
+        
+        // Langsung download file
+        const blob = await response.blob(); // HANYA BACA SEKALI
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Get filename from header
+        let filename = 'members_export.csv';
+        const contentDisposition = response.headers.get('content-disposition');
+        
+        if (contentDisposition) {
+            console.log('📄 Content-Disposition:', contentDisposition);
+            const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i) ||
+                                 contentDisposition.match(/filename="([^"]+)"/i) ||
+                                 contentDisposition.match(/filename=([^;]+)/i);
+            
+            if (filenameMatch && filenameMatch[1]) {
+                filename = decodeURIComponent(filenameMatch[1].trim());
+                console.log('📄 Extracted filename:', filename);
+            }
+        }
+        
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        
+        console.log('✅ Export successful!');
+        toast.success(`Export berhasil! File "${filename}" diunduh`);
+        
+    } catch (error: any) {
+        console.error('❌ Export error:', error);
+        
+        if (error instanceof Error) {
+            toast.error(`Export gagal: ${error.message}`);
+        } else {
+            toast.error('Gagal export data member: Terjadi kesalahan tidak diketahui');
+        }
+    } finally {
+        setExportLoading(false);
+    }
+};
+
+    // ✅ SIMPLE TEST - Export dengan data dummy untuk test
+    const handleExportTest = async () => {
+        console.log('🧪 TEST Export button clicked');
+        
+        setExportLoading(true);
+        try {
+            // Test dengan URL sederhana tanpa filter
+            const testUrl = `${appRoutes.members.export()}?test=1`;
+            console.log('🌐 Test URL:', testUrl);
+            
+            const response = await fetch(testUrl, {
+                headers: { 
+                    'Accept': 'text/csv',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include'
+            });
+            
+            console.log('📨 Test Response:', {
+                ok: response.ok,
+                status: response.status,
+                statusText: response.statusText,
+            });
+            
+            // Log headers
+            const headers: Record<string, string> = {};
+            response.headers.forEach((value, key) => {
+                headers[key] = value;
+            });
+            console.log('📨 Response headers:', headers);
+            
+            if (response.ok) {
+                const text = await response.text();
+                console.log('📄 Response text (first 500 chars):', text.substring(0, 500));
+                
+                // Download file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'test_export.csv';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                
+                console.log('✅ Test export successful!');
+                toast.success('Test export berhasil!');
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Test failed:', errorText.substring(0, 500));
+                toast.error(`Test gagal: ${response.status} ${response.statusText}`);
+            }
+            
+        } catch (error: any) {
+            console.error('❌ Test error:', error);
+            
+            if (error instanceof Error) {
+                toast.error(`Test error: ${error.message}`);
+            } else {
+                toast.error('Test error: Terjadi kesalahan tidak diketahui');
+            }
+        } finally {
+            setExportLoading(false);
         }
     };
 
@@ -217,6 +526,20 @@ export default function MembersIndex() {
         );
     };
 
+    const getStatusBadge = (status: 'active' | 'inactive') => {
+        return status === 'active' ? (
+            <Badge className="bg-green-100 text-green-800 hover:bg-green-100 flex items-center gap-1" variant="outline">
+                <CheckCircle className="h-3 w-3" />
+                Aktif
+            </Badge>
+        ) : (
+            <Badge className="bg-red-100 text-red-800 hover:bg-red-100 flex items-center gap-1" variant="outline">
+                <XCircle className="h-3 w-3" />
+                Nonaktif
+            </Badge>
+        );
+    };
+
     const handleDelete = async (memberCode: string, memberName: string) => {
         if (!confirm(`Apakah Anda yakin ingin menghapus member ${memberName}?`)) {
             return;
@@ -227,7 +550,43 @@ export default function MembersIndex() {
             toast.success(`Member ${memberName} berhasil dihapus`);
             fetchMembers();
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Gagal menghapus member';
+            // Cek jika error karena member memiliki transaksi
+            const errorMessage = error.response?.data?.message || '';
+            
+            if (errorMessage.includes('transaksi') || errorMessage.includes('Tidak dapat menghapus member')) {
+                toast.error(`Gagal menghapus: Member ${memberName} pernah melakukan transaksi`);
+            } else {
+                const message = error.response?.data?.message || 'Gagal menghapus member';
+                toast.error(message);
+            }
+        }
+    };
+
+    // Handle toggle status member
+    const handleToggleStatus = async (memberCode: string, currentStatus: 'active' | 'inactive', memberName: string) => {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        const confirmMessage = newStatus === 'active' 
+            ? `Apakah Anda yakin ingin mengaktifkan member ${memberName}?`
+            : `Apakah Anda yakin ingin menonaktifkan member ${memberName}?`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await axios.put(appRoutes.members.update(memberCode), {
+                status: newStatus
+            });
+
+            if (response.data.success) {
+                toast.success(`Status member ${memberName} berhasil diubah menjadi ${newStatus === 'active' ? 'aktif' : 'nonaktif'}`);
+                fetchMembers();
+            } else {
+                toast.error(response.data.message || 'Gagal mengubah status member');
+            }
+        } catch (error: any) {
+            console.error('Error toggling status:', error);
+            const message = error.response?.data?.message || 'Terjadi kesalahan saat mengubah status member';
             toast.error(message);
         }
     };
@@ -259,7 +618,7 @@ export default function MembersIndex() {
                     phone_number: '',
                     address: '',
                     gender: '1',
-                    birth_date: ''
+                    birth_date: '',
                 });
                 
                 // Refresh data members
@@ -383,6 +742,10 @@ export default function MembersIndex() {
 
     // Helper untuk menampilkan nilai filter
     const getFilterDisplayValue = (key: string, value: any): string => {
+        if (key === 'status') {
+            return value === 'active' ? 'Aktif' : 'Nonaktif';
+        }
+
         // Format gender
         if (key === 'gender') {
             return value === '1' ? 'Laki-laki' : 'Perempuan';
@@ -406,6 +769,7 @@ export default function MembersIndex() {
     // Hitung jumlah filter aktif
     const getActiveFilterCount = () => {
         let count = 0;
+        if (activeFilters.status && activeFilters.status !== 'all') count++;
         if (activeFilters.gender && activeFilters.gender !== 'all') count++;
         if (activeFilters.birth_date_start) count++;
         if (activeFilters.birth_date_end) count++;
@@ -427,9 +791,24 @@ export default function MembersIndex() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export
+                        {/* ✅ Export Button */}
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleExport}
+                            disabled={exportLoading || loading}
+                        >
+                            {exportLoading ? (
+                                <>
+                                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></span>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export CSV
+                                </>
+                            )}
                         </Button>
                         <Button onClick={() => setIsAddMemberDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -481,6 +860,17 @@ export default function MembersIndex() {
                         <div className="w-full">
                             <div className="flex items-center justify-between">
                                 <div className="flex flex-wrap gap-2 flex-1">
+                                    {activeFilters.status && activeFilters.status !== 'all' && (
+                                        <Badge variant="secondary" className="text-xs gap-1">
+                                            Status: {getFilterDisplayValue('status', activeFilters.status)}
+                                            <button 
+                                                onClick={() => handleClearFilter('status')}
+                                                className="hover:bg-gray-200 rounded-full p-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
                                     {/* Gender Filter Badge */}
                                     {activeFilters.gender && activeFilters.gender !== 'all' && (
                                         <Badge variant="secondary" className="text-xs gap-1">
@@ -536,7 +926,7 @@ export default function MembersIndex() {
                 </div>
 
                 {/* Statistics */}
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-5">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -560,7 +950,27 @@ export default function MembersIndex() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Member Pria (Page ini)
+                                Member Aktif
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {loading ? (
+                                    <Skeleton className="h-8 w-16" />
+                                ) : (
+                                    members.filter(m => m.status === 'active').length.toLocaleString('id-ID')
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Jumlah member aktif
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                                Member Pria
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -580,7 +990,7 @@ export default function MembersIndex() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Member Wanita (Page ini)
+                                Member Wanita
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -661,31 +1071,35 @@ export default function MembersIndex() {
                                         <TableHead>Gender</TableHead>
                                         <TableHead>Tanggal Lahir</TableHead>
                                         <TableHead>Usia</TableHead>
+                                        <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
                                         Array.from({ length: parseInt(perPage) }).map((_, index) => (
+                                            
                                             <TableRow key={index}>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                                <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                                             </TableRow>
                                         ))
                                     ) : members.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                                 {debouncedSearch || getActiveFilterCount() > 0
                                                     ? 'Tidak ada member yang sesuai dengan pencarian' 
                                                     : 'Belum ada data member'}
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        members.map((member) => (
+                                        members.map((member) => {
+                                            return (          
                                             <TableRow key={member.member_code}>
                                                 <TableCell className="font-mono font-medium">
                                                     {member.member_code}
@@ -712,6 +1126,9 @@ export default function MembersIndex() {
                                                         <Cake className="h-3.5 w-3.5 text-muted-foreground" />
                                                         <span>{calculateAge(member.birth_date)} tahun</span>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {getStatusBadge(member.status)}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <DropdownMenu>
@@ -744,8 +1161,31 @@ export default function MembersIndex() {
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem 
-                                                                className="text-red-600 cursor-pointer"
-                                                                onClick={() => handleDelete(member.member_code, member.member_name)}
+                                                                className="cursor-pointer"
+                                                                onClick={() => handleToggleStatus(member.member_code, member.status, member.member_name)}
+                                                            >
+                                                                {member.status === 'active' ? (
+                                                                    <>
+                                                                        <XCircle className="mr-2 h-4 w-4 text-yellow-600" />
+                                                                        <span className="text-yellow-600">Nonaktifkan</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                                                        <span className="text-green-600">Aktifkan</span>
+                                                                    </>
+                                                                )}
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem 
+                                                                className={`text-red-600 cursor-pointer ${member.total_transactions ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                onClick={() => {
+                                                                    if (member.total_transactions) {
+                                                                        toast.error(`Member ${member.member_name} memiliki transaksi dan tidak dapat dihapus`);
+                                                                    } else {
+                                                                        handleDelete(member.member_code, member.member_name);
+                                                                    }
+                                                                }}
+                                                                disabled={(member.total_transactions || 0) > 0}
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                                 Hapus
@@ -754,7 +1194,7 @@ export default function MembersIndex() {
                                                     </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                        )})
                                     )}
                                 </TableBody>
                             </Table>
@@ -803,10 +1243,20 @@ export default function MembersIndex() {
                                 <Input
                                     id="phone_number"
                                     value={newMemberData.phone_number}
-                                    onChange={(e) => setNewMemberData({
-                                        ...newMemberData,
-                                        phone_number: e.target.value
-                                    })}
+                                    onChange={(e) => {
+                                        // Hapus semua huruf dari input
+                                        const filteredValue = e.target.value.replace(/[a-zA-Z]/g, '');
+                                        setNewMemberData({
+                                            ...newMemberData,
+                                            phone_number: filteredValue
+                                        });
+                                    }}
+                                    onKeyPress={(e) => {
+                                        // Mencegah input huruf saat mengetik
+                                        if (/[a-zA-Z]/.test(e.key)) {
+                                            e.preventDefault();
+                                        }
+                                    }}
                                     placeholder="0812-3456-7890"
                                     required
                                 />
@@ -821,6 +1271,7 @@ export default function MembersIndex() {
                                         ...newMemberData,
                                         birth_date: e.target.value
                                     })}
+                                    max={new Date().toISOString().split('T')[0]}
                                 />
                             </div>
                         </div>
@@ -837,11 +1288,11 @@ export default function MembersIndex() {
                             >
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="1" id="male" />
-                                    <Label htmlFor="male">Laki-laki</Label>
+                                    <Label htmlFor="male">Pria</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="0" id="female" />
-                                    <Label htmlFor="female">Perempuan</Label>
+                                    <Label htmlFor="female">Wanita</Label>
                                 </div>
                             </RadioGroup>
                         </div>
@@ -873,7 +1324,7 @@ export default function MembersIndex() {
                                     phone_number: '',
                                     address: '',
                                     gender: '1',
-                                    birth_date: ''
+                                    birth_date: '',
                                 });
                             }}
                         >

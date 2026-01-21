@@ -6,6 +6,17 @@ export const membersFilterSchema: FilterSchema = {
     description: 'Pilih kriteria filter untuk menyaring data member',
     fields: [
         {
+            key: 'status',
+            label: 'Status Member',
+            type: 'radio',
+            defaultValue: 'all',
+            options: [
+                { value: 'all', label: 'Semua Status' },
+                { value: 'active', label: 'Aktif' },
+                { value: 'inactive', label: 'Nonaktif' },
+            ]
+        },
+        {
             key: 'gender',
             label: 'Jenis Kelamin',
             type: 'radio',
@@ -29,10 +40,17 @@ export const membersFilterSchema: FilterSchema = {
 export const convertMembersFiltersToParams = (filters: any) => {
     const params: any = {};
     
+    // Status filter
+    if (filters.status && filters.status !== 'all') {
+        params.status = filters.status;
+    }
+    
+    // Gender filter
     if (filters.gender && filters.gender !== 'all') {
         params.gender = filters.gender;
     }
     
+    // Birth date filter
     if (filters.birth_date_start) {
         params.birth_date_start = filters.birth_date_start;
     }

@@ -14,6 +14,10 @@ class MemberRepository implements MemberRepositoryInterface
     {
         $query = Member::query();
 
+        if (isset($filters['status']) && in_array($filters['status'], ['active', 'inactive'])) {
+            $query->where('status', $filters['status']);
+        }
+
         // Apply filters
         if (!empty($filters['search'])) {
             $search = strtolower($filters['search']);
@@ -82,11 +86,49 @@ class MemberRepository implements MemberRepositoryInterface
         return Member::where('member_code', $memberCode)->first();
     }
 
+    public function findByCodeWithSalesCount(string $memberCode)
+    {
+        return Member::withCount('sales')->where('member_code', $memberCode)->first();
+    }
+
     public function findByCodeWithSales(string $memberCode)
     {
         return Member::with(['sales' => function ($query) {
             $query->orderBy('sales_date', 'desc')->limit(10);
         }])->where('member_code', $memberCode)->first();
+    }
+
+    public function getAllForExport(array $filters = [])
+    {
+        $query = Member::query();
+
+        if (isset($filters['status']) && in_array($filters['status'], ['active', 'inactive'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        // Apply filters
+        if (!empty($filters['search'])) {
+            $search = strtolower($filters['search']);
+            $query->where(function ($q) use ($search) {
+                 $q->whereRaw('LOWER(member_name) LIKE ?', ['%' . strtolower($search) . '%'])
+                    ->orWhereRaw('LOWER(member_code) LIKE ?', ['%' . strtolower($search) . '%'])
+                    ->orWhereRaw('LOWER(phone_number) LIKE ?', ['%' . strtolower($search) . '%']);
+            });
+        }
+
+        if (isset($filters['gender'])) {
+            $query->where('gender', $filters['gender']);
+        }
+
+        if (!empty($filters['birth_date_start'])) {
+            $query->whereDate('birth_date', '>=', $filters['birth_date_start']);
+        }
+
+        if (!empty($filters['birth_date_end'])) {
+            $query->whereDate('birth_date', '<=', $filters['birth_date_end']);
+        }
+
+        return $query->orderBy('created_at', 'desc')->get();
     }
 
     public function create(array $data)

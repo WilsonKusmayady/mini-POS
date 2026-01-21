@@ -15,6 +15,7 @@ return new class extends Migration
             $table->text('address');
             $table->boolean('gender'); // 1 = L, 0 = P            
             $table->date('birth_date');
+            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });
     }

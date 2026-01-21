@@ -8,6 +8,8 @@ use App\Services\CodeGeneratorService;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Sales;
+use Illuminate\Support\Facades\Log;
+
 
 class SalesService
 {
@@ -67,6 +69,20 @@ class SalesService
         return $this->formatSaleResponse($sale);
     }
 
+    public function getSaleForNota(string $invoiceCode): Sales
+{
+    $sale = $this->saleRepository->getSaleForNota($invoiceCode);
+
+    if (!$sale) {
+        throw new \Exception('Sale not found');
+    }
+
+    return $sale;
+}
+
+
+
+    
     /**
     * Create new sale transaction
     */
@@ -410,6 +426,7 @@ class SalesService
             'member' => $sale->member ? [
                 'member_code' => $sale->member->member_code,
                 'member_name' => $sale->member->member_name,
+                'member_status' => $sale->member?->status,
             ] : null,
         ];
     }
@@ -420,6 +437,11 @@ class SalesService
             'sales_invoice_code' => $sale->sales_invoice_code,
             'customer_name' => $sale->customer_name,
             'member_code' => $sale->member_code,
+            'member' => $sale->member ? [
+                'member_code' => $sale->member->member_code,
+                'member_name' => $sale->member->member_name,
+                'member_status' => $sale->member->status,
+            ] : null,
             'sales_date' => $sale->sales_date,
             'sales_subtotal' => (float) $sale->sales_subtotal,
             'sales_discount_value' => (float) $sale->sales_discount_value,
@@ -441,5 +463,64 @@ class SalesService
                 ];
             })->toArray(),
         ];
+    }
+
+    public function getExportData(array $filters = []): array
+    {
+        $validatedFilters = $this->validateFilters($filters);
+        
+        $sales = $this->saleRepository->getAllSalesPaginated(100000, $validatedFilters); // Get all sales for export
+        
+        $formattedData = [];
+        
+        foreach ($sales as $sale) {
+            $formattedSale = $this->formatSaleForExport($sale);
+            $formattedData[] = $formattedSale;
+        }
+        
+        return $formattedData;
+    }
+
+    /**
+     * Format sale for export
+     */
+    private function formatSaleForExport($sale): array
+    {
+        $items = $sale->sales_details->map(function ($detail) {
+            return [
+                'item_code' => $detail->item_code,
+                'item_name' => $detail->item->item_name ?? 'Unknown',
+                'quantity' => $detail->sales_quantity,
+                'price' => number_format($detail->sell_price, 0, ',', '.'),
+                'discount' => number_format($detail->sales_discount_item, 0, ',', '.'),
+                'total' => number_format($detail->total_item_price, 0, ',', '.'),
+            ];
+        });
+
+        return [
+            'invoice_code' => $sale->sales_invoice_code,
+            'date' => Carbon::parse($sale->sales_date)->format('d/m/Y'),
+            'time' => Carbon::parse($sale->created_at)->format('H:i:s'),
+            'customer_name' => $sale->customer_name ?? ($sale->member ? $sale->member->member_name : 'Guest'),
+            'member_code' => $sale->member_code ?? '-',
+            'payment_method' => $this->formatPaymentMethod($sale->sales_payment_method),
+            'status' => $sale->sales_status ? 'Paid' : 'Cancelled',
+            'subtotal' => number_format($sale->sales_subtotal, 0, ',', '.'),
+            'discount_total' => number_format($sale->sales_hasil_discount_value, 0, ',', '.'),
+            'grand_total' => number_format($sale->sales_grand_total, 0, ',', '.'),
+            'items_count' => $sale->sales_details->count(),
+            'items' => $items->toArray(),
+            // 'cashier' => $sale->user->name ?? 'Unknown',
+        ];
+    }
+
+    private function formatPaymentMethod($method): string
+    {
+        return match($method) {
+            'cash' => 'Cash',
+            'debit' => 'Debit Card',
+            'qris' => 'QRIS',
+            default => $method,
+        };
     }
 }

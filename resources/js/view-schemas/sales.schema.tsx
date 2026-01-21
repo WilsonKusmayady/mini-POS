@@ -1,5 +1,6 @@
 import { ViewSchema } from '@/hooks/use-view-schema';
 import { Badge } from '@/components/ui/badge';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -42,11 +43,13 @@ export const salesViewSchema: ViewSchema = {
           key: 'sales_status',
           value: (data) =>
             data.sales_status ? (
-              <Badge className="bg-green-100 text-green-800" variant="outline">
+              <Badge className="bg-green-100 text-green-800 flex items-center gap-1" variant="outline">
+                <CheckCircle className="h-3 w-3" />
                 Paid
               </Badge>
             ) : (
-              <Badge className="bg-red-100 text-red-800" variant="outline">
+              <Badge className="bg-red-100 text-red-800 flex items-center gap-1" variant="outline">
+                <XCircle className="h-3 w-3" />
                 Cancelled
               </Badge>
             ),
@@ -60,15 +63,53 @@ export const salesViewSchema: ViewSchema = {
         {
           label: 'Nama Pelanggan',
           key: 'customer_name',
-          value: (data) =>
-            data.customer_name ??
-            (data.member_code ? `Member (${data.member_code})` : '-'),
+          value: (data) => {
+            // 1️⃣ Kalau input manual customer_name
+            if (data.customer_name) return data.customer_name;
+
+            // 2️⃣ Kalau member → ambil nama member
+            if (data.member) return data.member.member_name;
+
+            // 3️⃣ Fallback
+            return '-';
+          },
         },
         {
           label: 'Kode Member',
           key: 'member_code',
           value: (data) => data.member_code ?? '-',
         },
+        {
+          label: 'Status Member',
+          key: 'member_status',
+          value: (data) => {
+            if (!data.member_code) return '-';
+
+            console.log('SALE DATA:', data);
+
+            const status = data.member?.member_status;
+
+            if (!status) {
+              return (
+                <Badge className="bg-gray-100 text-gray-800" variant="outline">
+                  Tidak diketahui
+                </Badge>
+              );
+            }
+
+            return status === 'active' ? (
+              <Badge className="bg-green-100 text-green-800 flex items-center gap-1" variant="outline">
+                <CheckCircle className="h-3 w-3" />
+                Aktif
+              </Badge>
+            ) : (
+              <Badge className="bg-red-100 text-red-800 flex items-center gap-1" variant="outline">
+                <XCircle className="h-3 w-3" />
+                Nonaktif
+              </Badge>
+            );
+          },
+        }
       ],
     },
 
@@ -83,7 +124,10 @@ export const salesViewSchema: ViewSchema = {
               cash: 'Cash',
               debit: 'Debit',
               qris: 'QRIS',
-            } as Record<string, string>)[data.sales_payment_method],
+              credit: 'Credit Card',
+              transfer: 'Bank Transfer',
+              ewallet: 'E-Wallet',
+            } as Record<string, string>)[data.sales_payment_method] || data.sales_payment_method,
         },
         {
           label: 'Subtotal',
