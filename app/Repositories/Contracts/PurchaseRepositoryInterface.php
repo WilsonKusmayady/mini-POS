@@ -8,4 +8,5 @@ interface PurchaseRepositoryInterface {
     public function getPurchaseWithDetails($invoiceNumber);
     public function getAllPurchasesPaginated($perPage = 10);
     public function getPaginated(array $filters = [], int $perPage = 10);
+    public function getForExport(array $filters = []);
 }

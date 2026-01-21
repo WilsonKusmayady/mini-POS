@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
     // --- 3. Transaksi: PURCHASES (Pembelian) ---
     Route::prefix('purchases')->name('purchases.')->group(function () {
         Route::get('/', [PurchaseController::class, 'index'])->name('index');
+        Route::get('/export', [PurchaseController::class, 'export'])->name('export');
         Route::get('/create', [PurchaseController::class, 'create'])->name('create');
         Route::post('/', [PurchaseController::class, 'store'])->name('store');
         Route::get('/{id}', [PurchaseController::class, 'show'])->name('show');

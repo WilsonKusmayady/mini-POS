@@ -22,6 +22,39 @@ class PurchaseController extends Controller
         $this->itemService = $itemService;
     }
 
+    public function export(Request $request)
+    {
+        // 1. Ambil filter dari URL
+        $filters = $request->only([
+            'search', 'supplier_id', 'user_id', 
+            'start_date', 'end_date', 'min_total', 'max_total'
+        ]);
+
+        $fileName = 'purchases_export_' . date('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function() use ($filters) {
+            $handle = fopen('php://output', 'w');
+            
+            // Header CSV
+            fputcsv($handle, ['No Invoice', 'Tanggal', 'Supplier', 'Operator', 'Status', 'Total']);
+
+            // 2. Panggil Service method BARU (getExportData)
+            $purchases = $this->purchaseService->getExportData($filters);
+
+            foreach ($purchases as $purchase) {
+                fputcsv($handle, [
+                    $purchase->purchase_invoice_number,
+                    $purchase->purchase_date,
+                    $purchase->supplier ? $purchase->supplier->supplier_name : '-',
+                    $purchase->user ? $purchase->user->user_name : '-',
+                    $purchase->purchase_status,
+                    $purchase->purchase_grand_total
+                ]);
+            }
+            fclose($handle);
+        }, $fileName, ['Content-Type' => 'text/csv']);
+    }
+
     /**
      * Display a listing of the resource.
      */

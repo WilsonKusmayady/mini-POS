@@ -104,4 +104,8 @@ class PurchaseService
     public function getPaginatedPurchases(array $filters, int $perPage = 10) {
         return $this->purchaseRepository->getPaginated($filters, $perPage);
     }
+
+    public function getExportData(array $filters) {
+        return $this->purchaseRepository->getForExport($filters);
+    }
 }

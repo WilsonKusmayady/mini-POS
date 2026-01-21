@@ -146,6 +146,20 @@ export default function PurchaseIndex({ suppliers_list, users_list }: PurchaseIn
   }, [activeFilters]);
 
   // --- Handlers ---
+    const handleExport = () => {
+        const params = new URLSearchParams({
+            ...(searchInput && { search: searchInput }),
+            ...(activeFilters.supplierId && { supplier_id: activeFilters.supplierId }),
+            ...(activeFilters.userId && { user_id: activeFilters.userId }),
+            ...(activeFilters.startDate && { start_date: activeFilters.startDate }),
+            ...(activeFilters.endDate && { end_date: activeFilters.endDate }),
+            ...(activeFilters.minTotal && { min_total: activeFilters.minTotal }),
+            ...(activeFilters.maxTotal && { max_total: activeFilters.maxTotal }),
+        });
+
+        window.location.href = `/purchases/export?${params.toString()}`;
+    };
+
   const handleDelete = async (purchase: Purchase) => {
     if (!confirm(`Hapus pembelian ${purchase.purchase_invoice_number}?`)) return;
     try {
@@ -235,8 +249,8 @@ export default function PurchaseIndex({ suppliers_list, users_list }: PurchaseIn
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" /> Export
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
             <Button asChild>
               <Link href={appRoutes.purchases.create()}>
