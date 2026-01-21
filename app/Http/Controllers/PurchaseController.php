@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\PurchaseService;
-use App\Models\Item;
 use App\Services\ItemService;
-use App\Models\Supplier; // Bisa diganti SupplierService/Repository jika ada
-use App\Models\SupplierRepository; // Bisa diganti SupplierService/Repository jika ada
+use App\Models\Item;
+use App\Models\User; 
+use App\Models\Supplier; 
 use App\Http\Requests\StorePurchaseRequest;
+use Illuminate\Support\Facades\Validator; 
 use Inertia\Inertia;
 
 class PurchaseController extends Controller
@@ -26,11 +27,63 @@ class PurchaseController extends Controller
      */
     public function index()
     {
-        //
-        $purchases = $this->purchaseService->getPurchaseHistory();
+        // UBAHAN: Kita tidak fetch purchase history di sini lagi.
+        // Frontend akan fetch via API (apiIndex).
+        // Kita kirim data master untuk dropdown filter.
+        
         return Inertia::render('Purchase/Index', [
-            'purchases' => $purchases
+            'suppliers_list' => Supplier::select('supplier_id', 'supplier_name')->orderBy('supplier_name')->get(),
+            'users_list' => User::select('user_id', 'user_name')->orderBy('user_name')->get(),
         ]);
+    }
+
+    /**
+     * API: Get paginated purchases with filters
+     * Method BARU untuk handle filter ajax
+     */
+    public function apiIndex(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'nullable|integer',
+            'per_page' => 'nullable|integer',
+            'search' => 'nullable|string',
+            'supplier_id' => 'nullable|integer',
+            'user_id' => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'min_total' => 'nullable|numeric',
+            'max_total' => 'nullable|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            // Ambil hanya field yang relevan untuk filter
+            $filters = $request->only([
+                'search', 
+                'supplier_id', 
+                'user_id', 
+                'start_date', 
+                'end_date', 
+                'min_total', 
+                'max_total'
+            ]);
+            
+            $perPage = $request->get('per_page', 10);
+
+            // Panggil service yang sudah kita update sebelumnya
+            // Pastikan method getPaginatedPurchases sudah ada di PurchaseService
+            $purchases = $this->purchaseService->getPaginatedPurchases($filters, $perPage);
+
+            return response()->json($purchases);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to fetch purchases: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -58,7 +111,6 @@ class PurchaseController extends Controller
      */
     public function show(string $id)
     {
-        //
         $purchase = $this->purchaseService->getPurchaseByInvoice($id);
 
         if (!$purchase) {

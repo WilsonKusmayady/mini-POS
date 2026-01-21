@@ -40,7 +40,8 @@ import { SharedData } from '@/types';
 // --- IMPORT COMPONENTS ---
 import { ViewModal } from '@/components/ui/view-modal'; 
 import { MoneyInput } from '@/components/ui/money-input';
-import { SearchInput } from '@/components/ui/search-input'; // Import Component Baru
+import { SearchInput } from '@/components/ui/search-input'; 
+import { EditModal } from '@/components/ui/edit-modal'; // Pastikan path ini benar
 
 // --- Interfaces ---
 
@@ -106,7 +107,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     const currentSortBy = filters?.sort_by || 'item_name';
     const currentSortDir = filters?.sort_direction || 'asc';
 
-    // --- Search Handler (Diganti menggunakan SearchInput) ---
+    // --- Search Handler ---
     const handleSearch = (term: string) => {
         router.get(
             route('items.index'),
@@ -128,7 +129,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         router.get(
             route('items.index'),
             { 
-                search: filters?.search, // Ambil search dari props filters
+                search: filters?.search,
                 sort_by: field, 
                 sort_direction: direction 
             },
@@ -412,7 +413,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                         <div className="text-center text-muted-foreground">Tidak ada data dipilih</div>
                     )}
                 </ViewModal>
-
+                
                 {/* --- MODAL CREATE --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
@@ -437,29 +438,64 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT --- */}
-                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                    <DialogContent>
-                        <DialogHeader><DialogTitle>Edit Barang</DialogTitle></DialogHeader>
-                        <form onSubmit={handleEditSubmit} className="space-y-4">
-                            <div className="space-y-2"><Label>Nama Barang</Label><Input value={data.item_name} onChange={(e) => setData('item_name', e.target.value)} required /></div>
-                            <div className="space-y-2"><Label>Deskripsi</Label><Input value={data.item_description} onChange={(e) => setData('item_description', e.target.value)} /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2"><Label>Stok</Label><Input type="number" value={data.item_stock} readOnly className="bg-muted" /></div>
-                                <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
-                            </div>
-                            <div className="space-y-2"><Label>Harga Jual</Label>
-                                <MoneyInput
-                                    placeholder="Rp 0"
-                                    value={data.item_price}
-                                    onValueChange={(values) => setData('item_price', values.floatValue || 0)}
-                                    required
-                                />
-                            </div>
-                            <DialogFooter className="mt-4"><Button type="submit" disabled={processing}>Update</Button></DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                {/* --- MODAL EDIT (IMPLEMENTASI BARU DENGAN COMPONENT REUSABLE) --- */}
+                <EditModal
+                    open={isEditOpen}
+                    onOpenChange={setIsEditOpen}
+                    title="Edit Barang"
+                    onSubmit={handleEditSubmit}
+                    loading={processing}
+                    saveLabel="Update"
+                >
+                    <div className="space-y-2">
+                        <Label>Nama Barang</Label>
+                        <Input 
+                            value={data.item_name} 
+                            onChange={(e) => setData('item_name', e.target.value)} 
+                            required 
+                        />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label>Deskripsi</Label>
+                        <Input 
+                            value={data.item_description} 
+                            onChange={(e) => setData('item_description', e.target.value)} 
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Stok</Label>
+                            {/* Stok readOnly saat edit, biasanya stok diubah lewat transaksi pembelian/penjualan */}
+                            <Input 
+                                type="number" 
+                                value={data.item_stock} 
+                                readOnly 
+                                className="bg-muted text-muted-foreground cursor-not-allowed" 
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Min. Stok</Label>
+                            <Input 
+                                type="number" 
+                                value={data.item_min_stock} 
+                                onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} 
+                                required 
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label>Harga Jual</Label>
+                        <MoneyInput
+                            placeholder="Rp 0"
+                            value={data.item_price}
+                            onValueChange={(values) => setData('item_price', values.floatValue || 0)}
+                            required
+                        />
+                    </div>
+                </EditModal>
 
                 {/* --- MODAL DELETE --- */}
                 <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

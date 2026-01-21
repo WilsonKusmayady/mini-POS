@@ -100,4 +100,8 @@ class PurchaseService
             return $purchase;
         });
     }
+
+    public function getPaginatedPurchases(array $filters, int $perPage = 10) {
+        return $this->purchaseRepository->getPaginated($filters, $perPage);
+    }
 }

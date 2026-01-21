@@ -86,8 +86,9 @@ Route::middleware('auth')->group(function () {
         
         // Sales API
         Route::get('/sales', [SalesController::class, 'apiIndex'])->name('sales.api.index');
-        Route::delete('/sales/{invoiceCode}', [SalesController::class, 'destroy'])->name('sales.api.destroy');
-        Route::post('/sales/{invoiceCode}/cancel', [SalesController::class, 'cancel'])->name('sales.api.cancel');    
+
+        // Purchase API
+        Route::get('/purchases', [PurchaseController::class, 'apiIndex'])->name('purchases.api.index');
     });
 
 });
