@@ -125,7 +125,7 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h2 className="text-2xl font-bold">Daftar Pengguna</h2>
+                        <h2 className="text-3xl font-bold tracking-tight">Daftar Pengguna</h2>
                         <p className="text-muted-foreground">Kelola admin dan staff.</p>
                     </div>
                     <Button onClick={openCreateDialog}>
