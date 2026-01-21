@@ -13,10 +13,10 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Loader2, AlertCircle } from 'lucide-react'; // Tambah AlertCircle
+import { Check, ChevronsUpDown, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import axios from 'axios';
-import { Badge } from "@/components/ui/badge"; // Tambah Badge
+import { Badge } from "@/components/ui/badge";
 
 export interface Item {
     item_code: string;
@@ -31,7 +31,10 @@ interface ItemCombobox {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
-    disabledItems?: string[]; // Item yang sudah dipilih di row lain
+    disabledItems?: string[]; 
+    
+    // ✅ Tambahkan Props Baru Ini
+    allowOutOfStock?: boolean; 
 }
 
 export function ItemCombobox({
@@ -40,42 +43,41 @@ export function ItemCombobox({
     placeholder = "Pilih Item...",
     className,
     disabled = false,
-    disabledItems = [] // Item yang sudah dipilih di row lain
+    disabledItems = [],
+    
+    // ✅ Default false (artinya perilaku default seperti Sales: Stok habis = Disabled)
+    allowOutOfStock = false 
 }: ItemCombobox) {
+    // ... (State dan useEffect fetchItems biarkan sama seperti sebelumnya) ...
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
-
     const [selectedItemCache, setSelectedItemCache] = useState<Item | null>(null);
 
+    // ... (fetchItems logic sama) ...
     const fetchItems = async (pageParam: number, searchParam: string, reset = false) => {
-        try {
+         // Copy paste logic fetchItems yang lama di sini
+         // ...
+         try {
             setLoading(true);
             const res = await axios.get('/items/search', {
-                params: {
-                    page: pageParam,
-                    q: searchParam
-                }
+                params: { page: pageParam, q: searchParam }
             });
-
+            // ... dst
             let newItems: Item[] = [];
-
             if (Array.isArray(res.data?.data)) {
                 newItems = res.data.data;
                 setHasMore(!!res.data.next_page_url);
-            }
-            else if (Array.isArray(res.data)) {
+            } else if (Array.isArray(res.data)) {
                 newItems = res.data;
                 setHasMore(false);
-            }
-            else {
+            } else {
                 newItems = [];
                 setHasMore(false);
             }
-
             setItems(prev => reset ? newItems : [...prev, ...newItems]);
             setLoading(false);
         } catch (error) {
@@ -85,24 +87,22 @@ export function ItemCombobox({
     };
 
     useEffect(() => {
+        // ... (useEffect sama)
         if (!open) return;
-
-        // Tambahan biar lansung memunculkan data (belum fix)
         if (search.trim() === '') { 
             setPage(1);
             fetchItems(1, '', true);
             return
         }
-
         const timeoutId = setTimeout(() => {
             setPage(1);
             fetchItems(1, search, true);
-        }, 50); // Debounce 50ms biar tidak smooth loading nya (belum fix)
+        }, 50); 
         return () => clearTimeout(timeoutId);
     }, [search, open]);
 
-    // Infinite scroll 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        // ... (handleScroll sama)
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
         if (scrollHeight - scrollTop <= clientHeight + 50) {
             if (!loading && hasMore) {
@@ -113,24 +113,24 @@ export function ItemCombobox({
         }
     };
 
-    // Label yang ditampilkan pada tombol
+    // Label logic ...
     const displayLabel = items.find(i => i.item_code === value)?.item_name
     || selectedItemCache?.item_name
     || (value ? `Item ${value}` : placeholder);
 
-    // Fungsi untuk mengecek apakah item disabled
+    // ✅ LOGIC UTAMA DISINI
     const isItemDisabled = (item: Item): boolean => {
-        // 1. Cek jika stok 0 atau kurang
-        if (item.item_stock <= 0) return true;
+        // 1. Cek stok: Jika allowOutOfStock TRUE, maka abaikan stok 0
+        if (!allowOutOfStock && item.item_stock <= 0) return true;
         
-        // 2. Cek jika item sudah dipilih di row lain (kecuali row ini sendiri)
+        // 2. Cek duplikasi item di row lain
         if (disabledItems.includes(item.item_code) && item.item_code !== value) return true;
         
         return false;
     };
 
-    // Fungsi untuk mendapatkan status stok
-    const getStockStatus = (item: Item): { text: string, variant: "default" | "secondary" | "destructive" | "outline" } => {
+    const getStockStatus = (item: Item) => {
+        // ... (Logic stock status biarkan sama untuk visual)
         if (item.item_stock <= 0) {
             return { text: "Stok Habis", variant: "destructive" as const };
         } else if (item.item_stock < 10) {
@@ -212,12 +212,13 @@ export function ItemCombobox({
                                             </div>
                                             <div className="flex justify-between items-center mt-1">
                                                 <span className="text-sm text-primary font-medium">
-                                                    Rp {item.item_price.toLocaleString('id-ID')}
-                                                </span>
+                                                    Rp {Number(item.item_price).toLocaleString('id-ID', { maximumFractionDigits: 0 })}                                                </span>
+                                                {/* Logic UI Warning */}
                                                 {itemDisabled && item.item_code !== value && (
                                                     <span className="text-xs text-muted-foreground flex items-center">
                                                         <AlertCircle className="h-3 w-3 mr-1" />
-                                                        {item.item_stock <= 0 ? "Stok habis" : "Sudah dipilih"}
+                                                        {/* Tampilkan pesan yang sesuai */}
+                                                        {(!allowOutOfStock && item.item_stock <= 0) ? "Stok habis" : "Sudah dipilih"}
                                                     </span>
                                                 )}
                                             </div>

@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trash2, Plus, Save, ArrowLeft } from 'lucide-react';
 import { FormEventHandler } from 'react';
 import { appRoutes } from '@/lib/app-routes';
-import { ItemCombobox, Item } from '@/components/purchase-combobox';
+// import { ItemCombobox, Item } from '@/components/purchase-combobox';
+import { ItemCombobox, Item } from '@/components/item-combobox';
 import { MoneyInput } from '@/components/ui/money-input';
 
 const breadcrumbs = [
@@ -223,6 +224,7 @@ export default function PurchaseCreate({ suppliers }: CreateProps) {
                                                         value={item.item_code}
                                                         onSelect={(selectedItem) => handleItemSelect(index, selectedItem)}
                                                         placeholder="Cari Barang..."
+                                                        allowOutOfStock={true}
                                                     />
                                                 </TableCell>
                                                 <TableCell>
