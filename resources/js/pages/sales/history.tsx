@@ -20,6 +20,10 @@ import { toast } from 'sonner';
 import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
 import { salesFilterSchema, convertSalesFiltersToParams } from '@/filter-schemas/sales.shema';
 import { PrintNota } from '@/components/nota/PrintNota';
+// Di bagian atas file pages/sales/history.tsx, tambahkan:
+import { useEditModal } from '@/hooks/use-edit-modal';
+import { EditModal } from '@/components/ui/edit-modal';
+import { salesEditSchema, SalesFormData } from '@/edit-schemas/sales.schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -86,11 +90,20 @@ export default function SalesHistory({
   filters: initialFilters
 }: SalesHistoryProps) {
   const { openModal, Modal } = useViewModal();
-  
+  const { 
+    isOpen, 
+    openModal: openEditModal, 
+    closeModal, 
+    editData, 
+    schema, 
+    modalTitle 
+  } = useEditModal<SalesFormData>();
   // State untuk data
   const [sales, setSales] = useState<Sale[]>(Array.isArray(initialSales) ? initialSales : []);
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editDeleteLoading, setEditDeleteLoading] = useState(false);
   const [pagination, setPagination] = useState(initialPagination || {
     current_page: 1,
     per_page: 10,
@@ -123,9 +136,104 @@ export default function SalesHistory({
     );
   };
 
-  // Navigasi ke halaman edit
-  const handleEdit = (sale: Sale) => {
-    router.get(appRoutes.sales.edit(sale.sales_invoice_code));
+  const handleEditSale = (sale: Sale) => {
+    // Convert data dari API ke format form
+    const formData: SalesFormData = {
+      sales_invoice_code: sale.sales_invoice_code,
+      customer_name: sale.customer_name || '',
+      member_code: sale.member_code || undefined,
+      sales_date: sale.sales_date,
+      sales_subtotal: sale.sales_subtotal || 0,
+      sales_discount_value: sale.sales_discount_value || 0,
+      sales_grand_total: sale.sales_grand_total || 0,
+      sales_payment_method: sale.sales_payment_method || 'cash',
+      sales_status: sale.sales_status,
+    };
+    
+    openEditModal(formData, salesEditSchema, `Edit Transaksi: ${sale.sales_invoice_code}`);
+  };
+
+  // Submit handler untuk edit modal
+  const handleSubmitEdit = async (data: SalesFormData) => {
+    setEditLoading(true);
+    try {
+      console.log('📤 Sending sales update data:', data);
+      
+      // Siapkan data untuk API
+      const apiData = {
+        customer_name: data.customer_name,
+        member_code: data.member_code || null,
+        sales_date: data.sales_date,
+        sales_discount_value: data.sales_discount_value,
+        sales_payment_method: data.sales_payment_method,
+        sales_status: data.sales_status,
+      };
+      
+      console.log('🌐 Update URL:', `/api/sales/${data.sales_invoice_code}`);
+      
+      const response = await axios.put(
+        `/api/sales/${data.sales_invoice_code}`,
+        apiData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          }
+        }
+      );
+
+      console.log('✅ Update response:', response.data);
+      
+      if (response.data.success) {
+        toast.success('Transaksi berhasil diperbarui');
+        closeModal();
+        fetchSales(pagination.current_page);
+      } else {
+        throw new Error(response.data.message);
+      }
+    } catch (error: any) {
+      console.error('❌ Error updating sale:', error);
+      
+      if (error.response) {
+        console.error('📄 Error response data:', error.response.data);
+        console.error('🔧 Error response status:', error.response.status);
+        
+        if (error.response.data.errors) {
+          const errorMessages = Object.values(error.response.data.errors).flat().join(', ');
+          toast.error(`Validasi gagal: ${errorMessages}`);
+        } else if (error.response.data.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Terjadi kesalahan saat memperbarui transaksi');
+        }
+      } else {
+        toast.error('Gagal mengirim permintaan: ' + error.message);
+      }
+      
+      throw error;
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Delete handler untuk edit modal
+  const handleDeleteEdit = async (data: SalesFormData) => {
+    setEditDeleteLoading(true);
+    try {
+      const saleToDelete = sales.find(s => s.sales_invoice_code === data.sales_invoice_code);
+      
+      if (!saleToDelete) {
+        throw new Error('Transaksi tidak ditemukan');
+      }
+      
+      await handleDelete(saleToDelete);
+      closeModal();
+    } catch (error) {
+      throw error;
+    } finally {
+      setEditDeleteLoading(false);
+    }
   };
 
   // Delete sale
@@ -999,7 +1107,7 @@ export default function SalesHistory({
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEdit(sale)}>
+                              <DropdownMenuItem onClick={() => handleEditSale(sale)}>
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
@@ -1060,6 +1168,19 @@ export default function SalesHistory({
           </CardContent>
         </Card>
       </div>
+      <EditModal<SalesFormData>
+        isOpen={isOpen}
+        onClose={closeModal}
+        title={modalTitle}
+        data={editData}
+        schema={schema}
+        onSubmit={handleSubmitEdit}
+        onDelete={handleDeleteEdit}
+        isLoading={editLoading}
+        deleteLoading={editDeleteLoading}
+        showDelete={true}
+        deleteConfirmMessage="Apakah Anda yakin ingin menghapus transaksi ini?"
+      />
       <Modal />
     </AppLayout>
   );

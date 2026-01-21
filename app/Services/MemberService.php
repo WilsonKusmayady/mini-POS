@@ -87,17 +87,45 @@ class MemberService
             throw new \Exception('Member not found');
         }
 
-        $updateData = [
-            'member_name' => $data['member_name'],
-            'phone_number' => $data['phone_number'],
-            'address' => $data['address'],
-            'gender' => (bool) $data['gender'],
-            'birth_date' => Carbon::parse($data['birth_date'])->toDateString(),
-        ];
-
-        // Tambahkan status jika ada
+        // Prepare update data
+        $updateData = [];
+        
+        if (isset($data['member_name'])) {
+            $updateData['member_name'] = $data['member_name'];
+        }
+        
+        if (isset($data['phone_number'])) {
+            $updateData['phone_number'] = $data['phone_number'];
+        }
+        
+        if (isset($data['address'])) {
+            $updateData['address'] = $data['address'];
+        }
+        
+        // Handle gender - bisa boolean atau string '0'/'1'
+        if (isset($data['gender'])) {
+            $updateData['gender'] = is_bool($data['gender']) 
+                ? $data['gender'] 
+                : ($data['gender'] === '1' || $data['gender'] === 1 || $data['gender'] === true);
+        }
+        
+        // Handle birth date
+        if (isset($data['birth_date'])) {
+            try {
+                $updateData['birth_date'] = Carbon::parse($data['birth_date'])->toDateString();
+            } catch (\Exception $e) {
+                // Tanggal tidak valid, abaikan
+            }
+        }
+        
+        // Handle status
         if (isset($data['status'])) {
             $updateData['status'] = $data['status'];
+        }
+
+        // Jika tidak ada data yang diupdate
+        if (empty($updateData)) {
+            throw new \Exception('Tidak ada data yang diperbarui');
         }
 
         return $this->memberRepository->update($memberCode, $updateData);

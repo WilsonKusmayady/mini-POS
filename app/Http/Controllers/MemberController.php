@@ -283,7 +283,7 @@ class MemberController extends Controller
         $validator = Validator::make($request->all(), [
             'status' => 'nullable|in:active,inactive',
             'member_name' => 'nullable|string|max:255',
-            'phone_number' => 'nullable|string|max:20',
+            'phone_number' => 'nullable|string|max:20|unique:members,phone_number,' . $memberCode . ',member_code',
             'address' => 'nullable|string',
             'gender' => 'nullable|in:0,1',
             'birth_date' => 'nullable|date',
@@ -294,13 +294,8 @@ class MemberController extends Controller
         }
 
         try {
-            if ($request->has('status')) {
-                // Jika hanya update status
-                $this->memberService->toggleStatus($memberCode, $request->status);
-            } else {
-                // Jika update data lainnya
-                $this->memberService->updateMember($memberCode, $request->all());
-            }
+            // Update semua data sekaligus
+            $this->memberService->updateMember($memberCode, $request->all());
             
             return response()->json([
                 'success' => true,

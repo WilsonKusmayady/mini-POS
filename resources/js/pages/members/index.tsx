@@ -23,6 +23,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { memberEditSchema, MemberFormData } from '@/edit-schemas/members.schema';
+import { useEditModal } from '@/hooks/use-edit-modal';
+import { EditModal } from '@/components/ui/edit-modal';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -86,7 +89,17 @@ export default function MembersIndex() {
     const [perPage, setPerPage] = useState<string>('10');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    
+    // Di dalam komponen MembersIndex, tambahkan:
+    const [editLoading, setEditLoading] = useState(false);
+    const [editDeleteLoading, setEditDeleteLoading] = useState(false);
+    const { 
+        isOpen, 
+        openModal, 
+        closeModal, 
+        editData, 
+        schema, 
+        modalTitle 
+    } = useEditModal<MemberFormData>();
     // State untuk filter
     const [activeFilters, setActiveFilters] = useState<FilterParams>({});
     const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -104,6 +117,50 @@ export default function MembersIndex() {
     
     const { openModal: openViewModal, Modal: ViewModalComponent } = useViewModal();
 
+    const handleSubmitEdit = async (data: MemberFormData) => {
+        setEditLoading(true);
+        try {
+            // Convert data dari form ke format API
+            const apiData = {
+                ...data,
+                gender: data.gender,
+            };
+            
+            const response = await axios.put(
+                appRoutes.members.update(data.member_code),
+                apiData
+            );
+
+            if (response.data.success) {
+                toast.success('Member berhasil diperbarui');
+                closeModal(); // Tutup modal
+                fetchMembers(); // Refresh data
+            } else {
+                throw new Error(response.data.message);
+            }
+        } catch (error: any) {
+            console.error('Error updating member:', error);
+            const message = error.response?.data?.message || 'Terjadi kesalahan saat memperbarui member';
+            toast.error(message);
+            throw error; // Biarkan error ditangani oleh EditModal
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    const handleDeleteEdit = async (data: MemberFormData) => {
+        setEditDeleteLoading(true);
+        try {
+            // Panggil function delete yang sudah ada
+            await handleDelete(data.member_code, data.member_name);
+            closeModal(); // Tutup modal setelah berhasil
+        } catch (error) {
+            // Error sudah ditangani di handleDelete
+            throw error;
+        } finally {
+            setEditDeleteLoading(false);
+        }
+    };
     // Debounce search input
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -114,6 +171,19 @@ export default function MembersIndex() {
         return () => clearTimeout(timer);
     }, [search]);
 
+    const handleEditMember = (member: Member) => {
+        // Convert data dari API ke format form
+        const formData: MemberFormData = {
+        member_code: member.member_code,
+        member_name: member.member_name,
+        phone_number: member.phone_number,
+        address: member.address,
+        gender: member.gender ? '1' : '0',
+        birth_date: member.birth_date,
+        };
+        
+        openModal(formData, memberEditSchema, `Edit Member: ${member.member_name}`);
+    };
     // Fetch members data dengan filter
     const fetchMembers = async () => {
         setLoading(true);
@@ -1150,14 +1220,12 @@ export default function MembersIndex() {
                                                                 <User className="mr-2 h-4 w-4" />
                                                                 Detail
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem asChild>
-                                                                <Link 
-                                                                    href={appRoutes.members.edit(member.member_code)}
-                                                                    className="cursor-pointer"
-                                                                >
-                                                                    <Edit className="mr-2 h-4 w-4" />
-                                                                    Edit
-                                                                </Link>
+                                                            <DropdownMenuItem 
+                                                                className="cursor-pointer"
+                                                                onClick={() => handleEditMember(member)}
+                                                            >
+                                                                <Edit className="mr-2 h-4 w-4" />
+                                                                Edit
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem 
@@ -1340,7 +1408,19 @@ export default function MembersIndex() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
+            <EditModal<MemberFormData>
+                isOpen={isOpen}
+                onClose={closeModal}
+                title={modalTitle}
+                data={editData}
+                schema={schema}
+                onSubmit={handleSubmitEdit}
+                onDelete={handleDeleteEdit}
+                isLoading={editLoading}
+                deleteLoading={editDeleteLoading}
+                showDelete={true}
+                deleteConfirmMessage="Apakah Anda yakin ingin menghapus member ini?"
+            />
             <ViewModalComponent />
         </AppLayout>
     );
