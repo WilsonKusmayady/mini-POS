@@ -438,7 +438,7 @@ export function EditModal<T extends Record<string, any>>({
         mx-auto // Center horizontally
       `}
     >
-      <DialogHeader className="sticky top-0 bg-white z-10 pt-0"> {/* Tambahkan sticky header */}
+      <DialogHeader className="sticky top-0 z-10 pt-0"> {/* Tambahkan sticky header */}
         <DialogTitle>{title}</DialogTitle>
       </DialogHeader>
 
@@ -454,7 +454,7 @@ export function EditModal<T extends Record<string, any>>({
         </form>
       </div>
 
-      <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t mt-4"> {/* Sticky footer */}
+      <DialogFooter className="sticky bottom-0 pt-4 border-t mt-4"> {/* Sticky footer */}
         <div className="flex flex-col sm:flex-row gap-2 w-full">
           {customActions}
           
