@@ -30,6 +30,11 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
     public function getPaginated(array $filters = [], int $perPage = 10) {
         $query = Purchase::with(['supplier', 'user']);
 
+        // Logic Filter show inactvie active
+        if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
+            $query->onlyTrashed();
+        }
+
         // Search Filter
         if (!empty($filters['search'])) {
             $search = $filters['search'];
@@ -128,5 +133,24 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         return $query->orderBy('purchase_date', 'desc')
                      ->orderBy('purchase_invoice_number', 'desc')
                      ->get();
+    }
+
+    // Function Restore
+    public function restore($invoiceNumber) {
+        $purchase = Purchase::withTrashed()->where('purchase_invoice_number', $invoiceNumber)->first();
+
+        if ($purchase) {
+            $purchase->restore();
+        }
+        return $purchase;
+    }
+
+    // Logic Hide
+    public function destroy($invoiceNumber) {
+        $purchase = Purchase::find($invoiceNumber);
+        if ($purchase) {
+            $purchase->delete();
+        }
+        return false;
     }
 }

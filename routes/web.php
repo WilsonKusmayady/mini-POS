@@ -60,7 +60,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/export', [PurchaseController::class, 'export'])->name('export');
         Route::get('/create', [PurchaseController::class, 'create'])->name('create');
         Route::post('/', [PurchaseController::class, 'store'])->name('store');
+        
+        // Route Hide/Restore
         Route::get('/{id}', [PurchaseController::class, 'show'])->name('show');
+        Route::delete('/{id}', [PurchaseController::class, 'destroy'])->name('destroy');
+        Route::put('/{id}/restore', [PurchaseController::class, 'restore'])->name('restore');
     });
 
     // --- 4. Transaksi: SALES (Penjualan) ---

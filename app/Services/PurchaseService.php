@@ -105,6 +105,14 @@ class PurchaseService
         return $this->purchaseRepository->getPaginated($filters, $perPage);
     }
 
+    public function restorePurchase($invoiceNumber) {
+        return $this->purchaseRepository->restore($invoiceNumber);
+    }
+
+    public function deletePurchase($invoiceNumber) {
+        return $this->purchaseRepository->destroy($invoiceNumber);
+    }
+
     public function getExportData(array $filters) {
         return $this->purchaseRepository->getForExport($filters);
     }

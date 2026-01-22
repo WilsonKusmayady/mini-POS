@@ -101,7 +101,8 @@ class PurchaseController extends Controller
                 'start_date', 
                 'end_date', 
                 'min_total', 
-                'max_total'
+                'max_total',
+                'show_inactive'
             ]);
             
             $perPage = $request->get('per_page', 10);
@@ -117,6 +118,14 @@ class PurchaseController extends Controller
                 'error' => 'Failed to fetch purchases: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function restore($id) {
+        $this->purchaseService->restorePurchase($id);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pembelian berhasil dipulihkan (restored).'
+        ]);
     }
 
     /**
@@ -177,5 +186,11 @@ class PurchaseController extends Controller
     public function destroy(string $id)
     {
         //
+        $this->purchaseService->deletePurchase($id);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Pembelian berhasil dinonaktifkan'
+        ]);
     }
 }
