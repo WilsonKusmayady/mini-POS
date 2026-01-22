@@ -14,7 +14,7 @@ class CodeGeneratorService
     {
         $prefix = 'M' . date('y') . date('m');
 
-        $latest = Member::where('member_code', 'like', $prefix . '%')
+        $latest = Member::withTrashed()->where('member_code', 'like', $prefix . '%')
             ->orderBy('member_code', 'desc')
             ->first();
 
@@ -26,7 +26,7 @@ class CodeGeneratorService
     }
     public function generateItemCode(): string
     {
-        $latest = Item::orderBy('item_code', 'desc')->first();
+        $latest = Item::withTrashed()->orderBy('item_code', 'desc')->first();
         
         if (!$latest) {
             return 'ITM00001';
@@ -40,7 +40,7 @@ class CodeGeneratorService
     {
         $prefix = 'INV-S' . date('y') . date('m');
         
-        $latest = Sales::where('sales_invoice_code', 'like', $prefix . '%')
+        $latest = Sales::withTrashed()->where('sales_invoice_code', 'like', $prefix . '%')
             ->orderBy('sales_invoice_code', 'desc')
             ->first();
 
@@ -53,7 +53,7 @@ class CodeGeneratorService
     {
         $prefix = 'INV-P' . date('y') . date('m');
         
-        $latest = Purchase::where('purchase_invoice_number', 'like', $prefix . '%')
+        $latest = Purchase::withTrashed()->where('purchase_invoice_number', 'like', $prefix . '%')
             ->orderBy('purchase_invoice_number', 'desc')
             ->first();
 
