@@ -8,7 +8,7 @@ interface SearchInputProps {
     onSearch: (value: string) => void;
     placeholder?: string;
     className?: string;
-    debounce?: number; // Waktu tunda dalam ms (default 300ms)
+    debounce?: number; 
 }
 
 export function SearchInput({ 
@@ -18,36 +18,44 @@ export function SearchInput({
     className,
     debounce = 300 
 }: SearchInputProps) {
-    // State lokal untuk handle input user secara instan
     const [localValue, setLocalValue] = useState(value);
     const isFirstRender = useRef(true);
+    
+    // Simpan onSearch terbaru di ref agar tidak mentrigger useEffect
+    const onSearchRef = useRef(onSearch);
 
-    // Sinkronisasi jika value dari props berubah (misal dari URL)
+    // Update ref setiap kali prop onSearch berubah (tanpa re-render logic utama)
     useEffect(() => {
-        setLocalValue(value);
-    }, [value]);
+        onSearchRef.current = onSearch;
+    }, [onSearch]);
+
+    // Sinkronisasi value dari URL/Props
+    useEffect(() => {
+        if (value !== localValue) {
+            setLocalValue(value);
+        }
+    }, [value]); // Hapus localValue dari sini untuk cegah loop
 
     // Logika Debounce
     useEffect(() => {
-        // Hindari trigger saat pertama kali render
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
         }
 
         const handler = setTimeout(() => {
-            // Panggil fungsi pencarian parent hanya jika value berubah
-            onSearch(localValue);
+            // Gunakan ref untuk memanggil fungsi, jadi onSearch tidak perlu masuk dependency array
+            onSearchRef.current(localValue);
         }, debounce);
 
         return () => {
             clearTimeout(handler);
         };
-    }, [localValue, debounce, onSearch]);
+    }, [localValue, debounce]); 
 
     const handleClear = () => {
         setLocalValue('');
-        onSearch(''); // Langsung trigger search kosong
+        onSearchRef.current(''); 
     };
 
     return (
