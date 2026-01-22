@@ -21,13 +21,16 @@ export const appRoutes = {
 
     sales: {
         index: () => '/sales',
-        history: () => '/sales/history',
+        // history: () => '/sales/history',
         create: () => '/sales/create',
         edit: (id: number | string) => `/sales/${id}/edit`,
         show: (id: number | string) => `/sales/${id}`,
         store: () => '/sales',
+        nota: (id: string) => `/sales/${id}/nota`,
+        export: () => '/sales/export', 
         api: {
             list: () => '/api/sales',
+            export: () => '/api/sales/export', 
         },
 
     },
@@ -38,10 +41,13 @@ export const appRoutes = {
         store: () => '/members',
         edit: (id: string) => `/members/${id}/edit`,
         show: (id: string) => `/members/${id}`,
+        update: (id: string) => `/members/${id}`,
+        export: () => '/members/export', 
         api: {
             list: () => '/api/members', 
             destroy: (id: string) => `/api/members/${id}`,
             statistics: () => '/api/members/statistics',
+            export: () => '/api/members/export', 
         },
     },
 

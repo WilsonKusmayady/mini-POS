@@ -19,6 +19,8 @@ import {
     Package,
     Database,
     FileText,
+    ClipboardList,
+    BarChart3
 } from 'lucide-react';
 import { type NavItem } from '@/types';
 
@@ -66,6 +68,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     title: 'Sales',
                     href: '/sales',
                     icon: CreditCard,
+                },
+                {
+                    title: 'Summary',
+                    href: '/summary',
+                    icon: BarChart3,
+                },
+                {
+                    title: 'Laporan',
+                    href: '/reports',
+                    icon: ClipboardList,
                 },
             ],
         },

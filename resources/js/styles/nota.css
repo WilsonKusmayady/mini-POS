@@ -1,0 +1,21 @@
+/* styles/nota.css */
+.print-preview {
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+}
+
+@media print {
+  .print-settings {
+    display: none !important;
+  }
+  
+  .print-preview {
+    box-shadow: none;
+    margin: 0;
+  }
+  
+  .print-actions {
+    display: none !important;
+  }
+}

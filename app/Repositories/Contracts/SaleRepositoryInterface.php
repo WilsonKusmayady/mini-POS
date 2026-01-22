@@ -10,7 +10,13 @@ interface SaleRepositoryInterface
 
     public function getSalesHistory(array $filters = [], int $limit = 50): array;
 
+    public function updateSale(string $invoiceCode, array $data): bool;
+
+    public function getSaleDetails(string $invoiceCode);
+
     public function getSaleWithDetails(string $invoiceCode);
+    
+    public function getSaleForNota(string $invoiceCode);
 
     public function createSale(array $data);
 

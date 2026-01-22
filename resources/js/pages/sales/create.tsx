@@ -79,6 +79,8 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [itemStocks, setItemStocks] = useState<Record<string, number>>({});
+  const [discountValue, setDiscountValue] = useState<string>('0');
+
 
   const { data, setData, post, processing, errors } = useForm({
     sales_date: new Date().toISOString().split('T')[0],
@@ -441,12 +443,32 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                                 <Label>Nomor Telepon *</Label>
                                 <Input
                                   value={data.new_member.phone_number}
-                                  onChange={(e) => setData('new_member', {
-                                    ...data.new_member,
-                                    phone_number: e.target.value
-                                  })}
                                   placeholder="0812-3456-7890"
                                   required
+                                  onKeyDown={(e) => {
+                                    const allowedKeys = [
+                                      'Backspace',
+                                      'Delete',
+                                      'ArrowLeft',
+                                      'ArrowRight',
+                                      'Tab',
+                                    ];
+
+                                    if (
+                                      allowedKeys.includes(e.key) ||
+                                      /^[0-9+\-() ]$/.test(e.key)
+                                    ) {
+                                      return;
+                                    }
+
+                                    e.preventDefault();
+                                  }}
+                                  onChange={(e) =>
+                                    setData('new_member', {
+                                      ...data.new_member,
+                                      phone_number: e.target.value,
+                                    })
+                                  }
                                 />
                               </div>
                               <div className="space-y-2">
@@ -458,6 +480,7 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                                     ...data.new_member,
                                     birth_date: e.target.value
                                   })}
+                                  max={new Date().toISOString().split('T')[0]}
                                 />
                               </div>
                             </div>
@@ -563,9 +586,9 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                     type="date"
                     value={data.sales_date}
                     onChange={(e) => setData('sales_date', e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
                   />
-                </div>
-                
+                </div>   
                 <div className="space-y-2">
                   <Label>Metode Pembayaran</Label>
                   <Select
@@ -589,10 +612,41 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                   <Label>Diskon Transaksi (%)</Label>
                   <Input
                     type="number"
-                    min="0"
-                    max="100"
-                    value={data.sales_discount_value}
-                    onChange={(e) => setData('sales_discount_value', parseFloat(e.target.value) || 0)}
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={data.sales_discount_value === 0 ? '' : data.sales_discount_value}
+                    onKeyDown={(e) => {
+                      // 🚫 Blok tanda minus
+                      if (e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      if (value === '') {
+                        setData('sales_discount_value', 0);
+                        return;
+                      }
+
+                      const numValue = Number(value);
+
+                      if (isNaN(numValue) || numValue < 0) {
+                        setData('sales_discount_value', 0);
+                        return;
+                      }
+
+                      // Optional: clamp max 100
+                      setData('sales_discount_value', Math.min(numValue, 100));
+                    }}
+                    onBlur={(e) => {
+                      const numValue = Number(e.target.value);
+
+                      if (isNaN(numValue) || numValue < 0) {
+                        setData('sales_discount_value', 0);
+                      }
+                    }}
                     placeholder="0%"
                   />
                 </div>
@@ -702,11 +756,52 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                               min="1"
                               max={availableStock}
                               value={item.quantity}
-                              onChange={(e) => updateItemRow(index, 'quantity', parseInt(e.target.value) || 0)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const numValue = parseInt(value, 10);
+                                
+                                // Jika kosong, jangan update (biarkan user mengetik)
+                                if (value === '') {
+                                  return;
+                                }
+                                
+                                // Jika valid, update
+                                if (!isNaN(numValue)) {
+                                  updateItemRow(index, 'quantity', numValue);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                let value = parseInt(e.target.value, 10);
+                                
+                                if (isNaN(value) || value < 1) {
+                                  value = 1;
+                                }
+                                
+                                if (value > availableStock) {
+                                  value = availableStock;
+                                }
+                                
+                                updateItemRow(index, 'quantity', value);
+                              }}
+                              onInput={(e) => {
+                                // Biarkan user mengetik bebas
+                                const input = e.target as HTMLInputElement;
+                                if (input.value === '' || parseInt(input.value, 10) < 1) {
+                                  // Biarkan kosong sementara
+                                  return;
+                                }
+                              }}
                               className={stockWarning ? "border-red-300" : ""}
                             />
+
                             <div className="flex items-center text-xs">
-                              <span className={availableStock <= 5 ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                              <span
+                                className={
+                                  availableStock <= 5
+                                    ? "text-red-600 font-medium"
+                                    : "text-muted-foreground"
+                                }
+                              >
                                 Tersedia: {availableStock}
                               </span>
                               {stockWarning && (
@@ -716,15 +811,38 @@ export default function CreateSale({ initialMembers = [] }: CreateProps) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={item.discount_item}
-                            onChange={(e) => updateItemRow(index, 'discount_item', parseFloat(e.target.value) || 0)}
-                            placeholder="0%"
-                          />
-                        </TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={item.discount_item === 0 ? '' : item.discount_item}
+                          onKeyDown={(e) => {
+                            if (e.key === '-' || e.key === 'e') {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Jika kosong atau hanya minus/titik, set 0
+                            if (value === '' || value === '-' || value === '.') {
+                              updateItemRow(index, 'discount_item', 0);
+                            } else {
+                              const numValue = parseFloat(value);
+                              // Batasi maksimal 100
+                              const finalValue = Math.min(isNaN(numValue) ? 0 : numValue, 100);
+                              updateItemRow(index, 'discount_item', finalValue);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Saat keluar dari input, pastikan nilai valid
+                            if (e.target.value === '' || e.target.value === '-' || e.target.value === '.') {
+                              updateItemRow(index, 'discount_item', 0);
+                            }
+                          }}
+                          placeholder="0%"
+                        />
+                      </TableCell>
                         <TableCell className="text-right">
                           <span className="text-red-600">
                             - Rp {item.discount_value.toLocaleString('id-ID')}

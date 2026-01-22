@@ -19,10 +19,10 @@ export const salesFilterSchema: FilterSchema = {
         {
             key: 'payment_method',
             label: 'Metode Pembayaran',
-            type: 'radio',
+            type: 'select',
             defaultValue: '',
             options: [
-                { value: '', label: 'Semua Metode' },
+                { value: 'all', label: 'Semua Metode' },
                 { value: 'cash', label: 'Cash' },
                 { value: 'debit', label: 'Debit' },
                 { value: 'qris', label: 'QRIS' },

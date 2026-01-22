@@ -1,0 +1,49 @@
+/* styles/print.css */
+@media print {
+  /* Sembunyikan semua elemen kecuali nota */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-nota,
+  .print-nota * {
+    visibility: visible;
+  }
+  
+  .print-nota {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 105mm;
+    min-height: 160mm;
+    padding: 5mm;
+    font-family: 'Courier New', monospace;
+    font-size: 9pt;
+    background: white;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+  }
+  
+  /* Hapus margin halaman */
+  @page {
+    size: 105mm 160mm;
+    margin: 0;
+  }
+  
+  /* Hilangkan URL di footer print */
+  @page {
+    @bottom-right {
+      content: none;
+    }
+    @bottom-left {
+      content: none;
+    }
+    @top-right {
+      content: none;
+    }
+    @top-left {
+      content: none;
+    }
+  }
+}
