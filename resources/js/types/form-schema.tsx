@@ -9,7 +9,8 @@ export type FormFieldType =
   | 'checkbox' 
   | 'radio' 
   | 'date'
-  | 'custom';
+  | 'custom'
+  | 'money';
 
 export interface FormField<T = any> {
   name: keyof T & string;

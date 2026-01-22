@@ -38,13 +38,14 @@ import {
 import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download, RefreshCcw, Archive } from 'lucide-react';
 import { useState, FormEventHandler, useEffect } from 'react';
 import { SharedData } from '@/types';
-import { toast } from 'sonner'; // [IMPORT TOAST]
+import { toast } from 'sonner';
+import { FormSchema } from '@/types/form-schema'; 
 
 // --- IMPORT COMPONENTS ---
 import { ViewModal } from '@/components/ui/view-modal'; 
 import { MoneyInput } from '@/components/ui/money-input';
 import { SearchInput } from '@/components/ui/search-input'; 
-import { EditModal } from '@/components/ui/edit-modal';
+import { EditModal } from '@/components/ui/edit-modal'; // EditModal generic
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -93,12 +94,58 @@ interface IndexProps {
     };
 }
 
+// Schema untuk EditModal generic
+const itemSchema: FormSchema<Item> = {
+  fields: [
+    {
+      name: 'item_name',
+      label: 'Nama Barang',
+      type: 'text',
+      required: true,
+      placeholder: 'Masukkan nama barang',
+    },
+    {
+      name: 'item_description',
+      label: 'Deskripsi',
+      type: 'text',
+      required: false,
+      placeholder: 'Masukkan deskripsi barang',
+    },
+    {
+      name: 'item_price',
+      label: 'Harga Jual',
+      type: 'money',
+      required: true,
+      min: 0,
+      step: 1000,
+      placeholder: '0',
+    },
+    {
+      name: 'item_stock',
+      label: 'Stok',
+      type: 'number',
+      required: true,
+      min: 0,
+      disabled: true, // Stok tidak bisa diedit
+      placeholder: '0',
+    },
+    {
+      name: 'item_min_stock',
+      label: 'Minimum Stok',
+      type: 'number',
+      required: true,
+      min: 0,
+      placeholder: '0',
+    },
+  ],
+};
+
 export default function ItemIndex({ items, filters }: IndexProps) {
     const { flash } = usePage<SharedData>().props; 
 
     // State Modals
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false); // [UBAH NAMA]
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     
     // [MODAL STATE]
@@ -107,9 +154,9 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     const [isForceDeleteOpen, setIsForceDeleteOpen] = useState(false);
     
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+    const [selectedItemForEdit, setSelectedItemForEdit] = useState<Item | null>(null); // [STATE BARU UNTUK EDIT MODAL]
 
     // --- [BARU] EFFECT UNTUK TOAST NOTIFICATION ---
-    // Ini akan memunculkan alert toast setiap kali backend mengirim pesan success/error
     useEffect(() => {
         if (flash.success) {
             toast.success(flash.success);
@@ -192,7 +239,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
             : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
     };
 
-    // --- Form Hook ---
+    // --- Form Hook (untuk Create modal) ---
     const { data, setData, post, put, delete: destroy, processing, reset, errors } = useForm({
         item_name: '',
         item_price: 0,
@@ -204,16 +251,10 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     // --- Modal Handlers ---
     const openCreateModal = () => { reset(); setIsCreateOpen(true); };
     
+    // [UBAH] Handler untuk EditModal generic
     const openEditModal = (item: Item) => {
-        setSelectedItem(item);
-        setData({
-            item_name: item.item_name,
-            item_price: item.item_price,
-            item_stock: item.item_stock,
-            item_min_stock: item.item_min_stock,
-            item_description: item.item_description || '',
-        });
-        setIsEditOpen(true);
+        setSelectedItemForEdit(item);
+        setIsEditModalOpen(true);
     };
     
     const openDetailModal = (item: Item) => { 
@@ -226,18 +267,55 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         setIsDeleteOpen(true); 
     };
 
+    // Handler untuk EditModal generic
+    const handleEditSubmit = async (formData: Record<string, any>) => {
+        if (!selectedItemForEdit) return;
+        
+        // Konversi formData ke format yang sesuai
+        const updateData = {
+            item_name: formData.item_name,
+            item_description: formData.item_description,
+            item_price: Number(formData.item_price),
+            item_min_stock: Number(formData.item_min_stock),
+            // item_stock tidak dikirim karena tidak boleh diubah
+        };
+        
+        try {
+            await put(route('items.update', selectedItemForEdit.item_code), {
+                ...updateData, // Data form
+                onSuccess: () => {
+                    setIsEditModalOpen(false);
+                    setSelectedItemForEdit(null);
+                },
+                onError: (errors) => {
+                    throw new Error(Object.values(errors).join(', '));
+                }
+            });
+        } catch (error: any) {
+            throw error;
+        }
+    };
+
+    // Handler untuk delete di EditModal
+    const handleDeleteInModal = async (item: Item) => {
+        if (!item) return;
+        
+        if (!window.confirm(`Non-aktifkan barang ${item.item_name}?`)) {
+            return;
+        }
+        
+        await destroy(route('items.destroy', item.item_code), {
+            onSuccess: () => {
+                setIsEditModalOpen(false);
+                setSelectedItemForEdit(null);
+            }
+        });
+    };
+
     const handleCreateSubmit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('items.store'), { 
             onSuccess: () => { setIsCreateOpen(false); reset(); } 
-        });
-    };
-
-    const handleEditSubmit: FormEventHandler = (e) => {
-        e.preventDefault();
-        if (!selectedItem) return;
-        put(route('items.update', selectedItem.item_code), { 
-            onSuccess: () => { setIsEditOpen(false); setSelectedItem(null); reset(); } 
         });
     };
 
@@ -253,21 +331,17 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         setIsForceDeleteOpen(true);
     };
 
-    // --- [FIX] Hard Delete Handler ---
+    // --- Hard Delete Handler ---
     const hardForceDelete = () => {
         if (!selectedItem) return;
         
-        // Menggunakan Inertia router untuk delete
-        // Karena backend me-return redirect with flash message,
-        // Toast di useEffect akan menangkap pesannya.
         router.delete(route('items.force-destroy', selectedItem.item_code), {
-            preserveScroll: true, // PENTING: Agar tidak scroll ke atas
+            preserveScroll: true,
             onSuccess: () => {
                 setIsForceDeleteOpen(false);
                 setSelectedItem(null);
             },
             onError: () => {
-                // Jika ada error validasi inertia
                 setIsForceDeleteOpen(false);
             },
             onFinish: () => {
@@ -317,7 +391,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                         onCheckedChange={handleShowInactiveChange}
                                     />
                                     <Label htmlFor="show-inactive" className="cursor-pointer text-sm font-medium">
-                                        {filters?.show_inactive ? 'Show Inactive' : 'Show Inactive'}
+                                        {filters?.show_inactive ? 'Menampilkan Non-Aktif' : 'Hanya Aktif'}
                                     </Label>
                                 </div>
 
@@ -398,28 +472,51 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                                             
-                                                            <DropdownMenuItem onClick={() => router.visit(route('items.edit', item.item_code))}>
-                                                                <Edit className="mr-2 h-4 w-4" /> Edit
+                                                            {/* DETAIL - selalu ada */}
+                                                            <DropdownMenuItem onClick={() => openDetailModal(item)}>
+                                                                <Eye className="mr-2 h-4 w-4" /> Detail
                                                             </DropdownMenuItem>
                                                             
-                                                            {/* TOMBOL 1: SOFT DELETE (Selalu Muncul) */}
+                                                            {/* EDIT - hanya untuk item aktif */}
                                                             {!item.deleted_at && (
-                                                                <DropdownMenuItem 
-                                                                    onClick={() => openDeleteModal(item)}
-                                                                    className="text-orange-600 focus:text-orange-600"
-                                                                >
-                                                                    <Archive className="mr-2 h-4 w-4" /> Non-aktifkan
+                                                                <DropdownMenuItem onClick={() => openEditModal(item)}>
+                                                                    <Edit className="mr-2 h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
                                                             )}
-
-                                                            {/* TOMBOL 2: HARD DELETE (Hapus Permanen) */}
+                                                            
+                                                            {/* LOGIK KONDISIONAL UTAMA */}
+                                                            {item.deleted_at ? (
+                                                                // JIKA ITEM SUDAH NON-AKTIF (deleted_at ada)
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => openRestoreModal(item)}
+                                                                        className="text-green-600 focus:text-green-600 focus:bg-green-50"
+                                                                    >
+                                                                        <RefreshCcw className="mr-2 h-4 w-4" /> Pulihkan (Restore)
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            ) : (
+                                                                // JIKA ITEM MASIH AKTIF
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => openDeleteModal(item)}
+                                                                        className="text-orange-600 focus:text-orange-600"
+                                                                    >
+                                                                        <Archive className="mr-2 h-4 w-4" /> Non-aktifkan
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                            
+                                                            {/* HARDDELETE - selalu ada tapi dengan styling berbeda */}
+                                                            <DropdownMenuSeparator />
                                                             <DropdownMenuItem 
                                                                 onClick={() => openForceDeleteModal(item)} 
                                                                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" /> Hapus Permanen
                                                             </DropdownMenuItem>
-
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -435,6 +532,11 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                             <div className="flex items-center justify-between mt-6">
                                 <div className="text-sm text-muted-foreground">
                                     Menampilkan {items.from} sampai {items.to} dari {items.total} data
+                                    {filters?.show_inactive && (
+                                        <span className="ml-2 text-amber-600">
+                                            (Termasuk {items.data.filter(item => item.deleted_at).length} non-aktif)
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {items.links.map((link, index) => {
@@ -476,7 +578,6 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                 >
                     {selectedItem && (
                          <div className="grid gap-4 py-0">
-                            {/* ... Content Detail ... */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Kode</Label>
                                 <div className="col-span-3 text-sm font-bold">{selectedItem.item_code}</div>
@@ -520,16 +621,26 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT --- */}
-                <EditModal open={isEditOpen} onOpenChange={setIsEditOpen} title="Edit Barang" onSubmit={handleEditSubmit} loading={processing} saveLabel="Update">
-                    <div className="space-y-2"><Label>Nama Barang</Label><Input value={data.item_name} onChange={(e) => setData('item_name', e.target.value)} required /></div>
-                    <div className="space-y-2"><Label>Deskripsi</Label><Input value={data.item_description} onChange={(e) => setData('item_description', e.target.value)} /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Stok</Label><Input type="number" value={data.item_stock} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" /></div>
-                        <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
-                    </div>
-                    <div className="space-y-2"><Label>Harga Jual</Label><MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required /></div>
-                </EditModal>
+                {/* --- EDIT MODAL GENERIC --- */}
+                {selectedItemForEdit && (
+                    <EditModal<Item>
+                        isOpen={isEditModalOpen}
+                        onClose={() => {
+                            setIsEditModalOpen(false);
+                            setSelectedItemForEdit(null);
+                        }}
+                        title="Edit Barang"
+                        data={selectedItemForEdit}
+                        schema={itemSchema}
+                        onSubmit={handleEditSubmit}
+                        onDelete={handleDeleteInModal}
+                        isLoading={processing}
+                        showDelete={true}
+                        deleteConfirmMessage="Apakah Anda yakin ingin menonaktifkan barang ini?"
+                        width="lg"
+                        maxHeight="85vh"
+                    />
+                )}
 
                 {/* --- MODAL SOFT DELETE (Non-aktifkan) --- */}
                 <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

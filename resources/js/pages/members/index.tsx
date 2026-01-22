@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { memberEditSchema, MemberFormData } from '@/edit-schemas/members.schema';
 import { useEditModal } from '@/hooks/use-edit-modal';
 import { EditModal } from '@/components/ui/edit-modal';
+import { SearchInput } from '@/components/ui/search-input';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

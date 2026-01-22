@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { FormSchema } from '@/types/form-schema';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { MoneyInput } from '@/components/ui/money-input';
 
 // Import komponen Date Picker alternatif jika Calendar tidak ada
 // Buat DatePicker sederhana
@@ -263,6 +264,28 @@ export function EditModal<T extends Record<string, any>>({
       : field.description;
 
     switch (field.type) {
+        case 'money':
+            return (
+                <div className="space-y-2">
+                    <Label htmlFor={fieldName}>
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    <MoneyInput
+                        id={fieldName}
+                        value={value !== undefined && value !== null ? Number(value) : 0}
+                        onValueChange={(values) => handleChange(fieldName, values.floatValue || 0)}
+                        disabled={isDisabled}
+                        placeholder={field.placeholder || 'Rp 0'}
+                        className={error ? 'border-red-500' : ''}
+                    />
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {fieldDescription && (
+                        <p className="text-sm text-muted-foreground">{fieldDescription}</p>
+                    )}
+                </div>
+            );
+
       case 'text':
         return (
           <div className="space-y-2">
@@ -438,7 +461,7 @@ export function EditModal<T extends Record<string, any>>({
         mx-auto // Center horizontally
       `}
     >
-      <DialogHeader className="sticky top-0 bg-white z-10 pt-0"> {/* Tambahkan sticky header */}
+      <DialogHeader className="sticky top-0 z-10 pt-0"> {/* Tambahkan sticky header */}
         <DialogTitle>{title}</DialogTitle>
       </DialogHeader>
 
@@ -454,7 +477,7 @@ export function EditModal<T extends Record<string, any>>({
         </form>
       </div>
 
-      <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t mt-4"> {/* Sticky footer */}
+      <DialogFooter className="sticky bottom-0 pt-4 border-t mt-4"> {/* Sticky footer */}
         <div className="flex flex-col sm:flex-row gap-2 w-full">
           {customActions}
           
