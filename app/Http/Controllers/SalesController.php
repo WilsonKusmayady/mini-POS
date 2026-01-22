@@ -278,6 +278,95 @@ class SalesController extends Controller
         }
     }
 
+    // Di file: SalesController.php
+    public function apiUpdate(Request $request, string $invoiceCode)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_name' => 'nullable|string|max:255',
+            'member_code' => 'nullable|string|exists:members,member_code',
+            'sales_date' => 'nullable|date',
+            'sales_discount_value' => 'nullable|numeric|min:0|max:100',
+            'sales_payment_method' => 'nullable|in:cash,debit,qris',
+            'sales_status' => 'nullable|boolean',
+            'items' => 'nullable|array',
+            'items.*.item_code' => 'required|string|exists:items,item_code',
+            'items.*.sales_quantity' => 'required|integer|min:1',
+            'items.*.sell_price' => 'required|numeric|min:0',
+            'items.*.sales_discount_item' => 'nullable|numeric|min:0',
+            'items.*.sales_hasil_diskon_item' => 'nullable|numeric|min:0',
+            'items.*.total_item_price' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            // Panggil service untuk update
+            $updatedSale = $this->saleService->updateSale($invoiceCode, $request->all());
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil diperbarui',
+                'data' => $updatedSale
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error updating sale: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui transaksi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiGetItemInfo(string $itemCode)
+    {
+        try {
+            $itemInfo = $this->saleService->getItemInfo($itemCode);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $itemInfo
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiSearchItems(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (!$query) {
+            return response()->json(['data' => []]);
+        }
+        
+        $items = \App\Models\Item::where(function($q) use ($query) {
+                $q->where('item_code', 'LIKE', "%{$query}%")
+                ->orWhere('item_name', 'LIKE', "%{$query}%");
+            })
+            ->where('status', 1)
+            ->take(10)
+            ->get()
+            ->map(function($item) {
+                return [
+                    'item_code' => $item->item_code,
+                    'item_name' => $item->item_name,
+                    'sell_price' => (float) $item->sell_price,
+                    'stock' => (int) $item->stock,
+                    'unit' => $item->unit,
+                ];
+            });
+        
+        return response()->json(['data' => $items]);
+    }
+
     /**
      * API Export for AJAX requests
      */

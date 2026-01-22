@@ -92,6 +92,44 @@ class SaleRepository implements SaleRepositoryInterface
         })->toArray();
     }
 
+    public function updateSale(string $invoiceCode, array $data): bool
+    {
+        $sale = Sales::where('sales_invoice_code', $invoiceCode)->first();
+        
+        if (!$sale) {
+            throw new \Exception('Sale not found');
+        }
+
+        // Filter hanya field yang diizinkan untuk diupdate
+        $allowedFields = [
+            'customer_name',
+            'member_code', 
+            'sales_date',
+            'sales_discount_value',
+            'sales_payment_method',
+            'sales_status'
+        ];
+        
+        $updateData = [];
+        foreach ($allowedFields as $field) {
+            if (array_key_exists($field, $data)) {
+                $updateData[$field] = $data[$field];
+            }
+        }
+
+        // Jika ada perubahan pada member_code, validasi
+        if (isset($updateData['member_code']) && $updateData['member_code'] === null) {
+            $updateData['member_code'] = null;
+        }
+
+        return $sale->update($updateData);
+    }
+
+    public function getSaleDetails(string $invoiceCode)
+    {
+        return SalesDetail::where('sales_invoice_code', $invoiceCode)->get();
+    }
+
     public function getSaleWithDetails(string $invoiceCode)
     {
         return Sales::with(['sales_details.item', 'user', 'member'])

@@ -1,3 +1,4 @@
+// Di file: components/ui/edit-modal.tsx
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,9 @@ const DatePickerInput = ({
   );
 };
 
+// Tambahkan tipe untuk width options
+export type ModalWidth = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full' | number;
+
 interface EditModalProps<T extends Record<string, any>> {
   isOpen: boolean;
   onClose: () => void;
@@ -54,6 +58,8 @@ interface EditModalProps<T extends Record<string, any>> {
   showDelete?: boolean;
   deleteConfirmMessage?: string;
   customActions?: React.ReactNode;
+  width?: ModalWidth; // Tambahkan prop width
+  maxHeight?: string; // Tambahkan prop untuk max height
 }
 
 export function EditModal<T extends Record<string, any>>({
@@ -69,13 +75,16 @@ export function EditModal<T extends Record<string, any>>({
   showDelete = false,
   deleteConfirmMessage = 'Apakah Anda yakin ingin menghapus data ini?',
   customActions,
+  width = 'md', // Default ke 'md'
+  maxHeight = '90vh', // Default max height
 }: EditModalProps<T>) {
   const [formData, setFormData] = useState<Partial<T>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Initialize form data when modal opens
   useEffect(() => {
-    if (data && schema) {
+    if (data && schema && isOpen) {
+      console.log('EditModal: initializing form data');
       const initialData: Partial<T> = {};
       schema.fields.forEach((field) => {
         const fieldName = field.name as string;
@@ -85,6 +94,31 @@ export function EditModal<T extends Record<string, any>>({
       setErrors({});
     }
   }, [data, schema, isOpen]);
+
+  // Fungsi untuk menentukan class width berdasarkan prop width
+  const getWidthClass = () => {
+    if (typeof width === 'number') {
+      // Jika width berupa angka, gunakan nilai pixel
+      return `max-w-[${width}px]`;
+    }
+
+    // Jika width berupa string, gunakan class Tailwind
+    const widthClasses = {
+      'sm': 'sm:max-w-sm',
+      'md': 'sm:max-w-md',
+      'lg': 'sm:max-w-lg',
+      'xl': 'sm:max-w-xl',
+      '2xl': 'sm:max-w-2xl',
+      '3xl': 'sm:max-w-3xl',
+      '4xl': 'sm:max-w-4xl',
+      '5xl': 'sm:max-w-5xl',
+      '6xl': 'sm:max-w-6xl',
+      '7xl': 'sm:max-w-7xl',
+      'full': 'sm:max-w-full mx-4',
+    };
+
+    return widthClasses[width as keyof typeof widthClasses] || widthClasses.md;
+  };
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({
@@ -209,6 +243,25 @@ export function EditModal<T extends Record<string, any>>({
     const value = formData[fieldName as keyof T];
     const error = errors[fieldName];
 
+    const isVisible = typeof field.visible === 'function' 
+      ? field.visible(formData as T)
+      : field.visible !== false; // Default true jika tidak didefinisikan
+    
+    // Jika field tidak visible, return null
+    if (!isVisible) {
+      return null;
+    }
+    
+    // Handle disabled jika berupa function
+    const isDisabled = typeof field.disabled === 'function' 
+      ? field.disabled(formData as T)
+      : field.disabled || isLoading;
+    
+    // Handle description jika berupa function
+    const fieldDescription = typeof field.description === 'function'
+      ? field.description(formData as T)
+      : field.description;
+
     switch (field.type) {
       case 'text':
         return (
@@ -222,13 +275,13 @@ export function EditModal<T extends Record<string, any>>({
               type="text"
               value={value !== undefined && value !== null ? String(value) : ''}
               onChange={(e) => handleChange(fieldName, e.target.value)}
-              disabled={isLoading || field.disabled}
+              disabled={isDisabled}
               className={error ? 'border-red-500' : ''}
               placeholder={field.placeholder}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
+            {fieldDescription && (
+              <p className="text-sm text-muted-foreground">{fieldDescription}</p>
             )}
           </div>
         );
@@ -245,7 +298,7 @@ export function EditModal<T extends Record<string, any>>({
               type="number"
               value={value !== undefined && value !== null ? value : ''}
               onChange={(e) => handleChange(fieldName, e.target.value === '' ? '' : Number(e.target.value))}
-              disabled={isLoading || field.disabled}
+              disabled={isDisabled}
               className={error ? 'border-red-500' : ''}
               min={field.min}
               max={field.max}
@@ -253,68 +306,8 @@ export function EditModal<T extends Record<string, any>>({
               placeholder={field.placeholder}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
-          </div>
-        );
-
-      case 'email':
-        return (
-          <div className="space-y-2">
-            <Label htmlFor={fieldName}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={fieldName}
-              type="email"
-              value={value !== undefined && value !== null ? String(value) : ''}
-              onChange={(e) => handleChange(fieldName, e.target.value)}
-              disabled={isLoading || field.disabled}
-              className={error ? 'border-red-500' : ''}
-              placeholder={field.placeholder}
-            />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-          </div>
-        );
-
-      case 'password':
-        return (
-          <div className="space-y-2">
-            <Label htmlFor={fieldName}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={fieldName}
-              type="password"
-              value={value !== undefined && value !== null ? String(value) : ''}
-              onChange={(e) => handleChange(fieldName, e.target.value)}
-              disabled={isLoading || field.disabled}
-              className={error ? 'border-red-500' : ''}
-              placeholder={field.placeholder}
-            />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <div className="space-y-2">
-            <Label htmlFor={fieldName}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Textarea
-              id={fieldName}
-              value={value !== undefined && value !== null ? String(value) : ''}
-              onChange={(e) => handleChange(fieldName, e.target.value)}
-              disabled={isLoading || field.disabled}
-              className={error ? 'border-red-500' : ''}
-              placeholder={field.placeholder}
-              rows={3}
-            />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
+            {fieldDescription && (
+              <p className="text-sm text-muted-foreground">{fieldDescription}</p>
             )}
           </div>
         );
@@ -329,7 +322,7 @@ export function EditModal<T extends Record<string, any>>({
             <Select
               value={value !== undefined && value !== null ? String(value) : ''}
               onValueChange={(val) => handleChange(fieldName, val)}
-              disabled={isLoading || field.disabled}
+              disabled={isDisabled}
             >
               <SelectTrigger className={error ? 'border-red-500' : ''} id={fieldName}>
                 <SelectValue placeholder={field.placeholder || 'Pilih...'} />
@@ -343,6 +336,9 @@ export function EditModal<T extends Record<string, any>>({
               </SelectContent>
             </Select>
             {error && <p className="text-sm text-red-500">{error}</p>}
+            {fieldDescription && (
+              <p className="text-sm text-muted-foreground">{fieldDescription}</p>
+            )}
           </div>
         );
 
@@ -353,40 +349,16 @@ export function EditModal<T extends Record<string, any>>({
               id={fieldName}
               checked={Boolean(value)}
               onCheckedChange={(checked) => handleChange(fieldName, checked)}
-              disabled={isLoading || field.disabled}
+              disabled={isDisabled}
             />
             <Label htmlFor={fieldName} className="cursor-pointer">
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             {error && <p className="text-sm text-red-500">{error}</p>}
-          </div>
-        );
-
-      case 'radio':
-        return (
-          <div className="space-y-2">
-            <Label>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <RadioGroup
-              value={value !== undefined && value !== null ? String(value) : ''}
-              onValueChange={(val) => handleChange(fieldName, val)}
-              disabled={isLoading || field.disabled}
-              className="flex flex-col space-y-1"
-            >
-              {field.options?.map((option: any) => (
-                <div key={String(option.value)} className="flex items-center space-x-2">
-                  <RadioGroupItem 
-                    value={String(option.value)} 
-                    id={`${fieldName}-${option.value}`} 
-                  />
-                  <Label htmlFor={`${fieldName}-${option.value}`}>{option.label}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {fieldDescription && (
+              <p className="text-sm text-muted-foreground">{fieldDescription}</p>
+            )}
           </div>
         );
 
@@ -400,11 +372,14 @@ export function EditModal<T extends Record<string, any>>({
             <DatePickerInput
               value={value as string || ''}
               onChange={(val) => handleChange(fieldName, val)}
-              disabled={isLoading || field.disabled}
+              disabled={isDisabled}
               placeholder={field.placeholder || 'Pilih tanggal'}
               error={!!error}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
+            {fieldDescription && (
+              <p className="text-sm text-muted-foreground">{fieldDescription}</p>
+            )}
           </div>
         );
 
@@ -419,12 +394,21 @@ export function EditModal<T extends Record<string, any>>({
   if (!schema || !data) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
+  <Dialog open={isOpen} onOpenChange={onClose}>
+    <DialogContent 
+      className={`
+        ${getWidthClass()} 
+        max-h-[${maxHeight}] 
+        overflow-y-auto 
+        my-4 // Tambahkan margin vertikal
+        mx-auto // Center horizontally
+      `}
+    >
+      <DialogHeader className="sticky top-0 bg-white z-10 pt-0"> {/* Tambahkan sticky header */}
+        <DialogTitle>{title}</DialogTitle>
+      </DialogHeader>
 
+      <div className="overflow-y-auto flex-1" style={{ maxHeight: `calc(${maxHeight} - 100px)` }}> {/* Container dengan scroll */}
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-4">
             {schema.fields.map((field, index) => (
@@ -433,29 +417,14 @@ export function EditModal<T extends Record<string, any>>({
               </div>
             ))}
           </div>
+        </form>
+      </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            {/* {showDelete && onDelete && (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isLoading || deleteLoading}
-                className="sm:mr-auto"
-              >
-                {deleteLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Menghapus...
-                  </>
-                ) : (
-                  'Hapus'
-                )}
-              </Button>
-            )} */}
-            
-            {customActions}
-            
+      <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t mt-4"> {/* Sticky footer */}
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
+          {customActions}
+          
+          <div className="flex gap-2 ml-auto">
             <Button
               type="button"
               variant="outline"
@@ -467,6 +436,7 @@ export function EditModal<T extends Record<string, any>>({
             <Button
               type="submit"
               disabled={isLoading}
+              onClick={handleSubmit} // Pindah onClick ke sini
             >
               {isLoading ? (
                 <>
@@ -477,9 +447,10 @@ export function EditModal<T extends Record<string, any>>({
                 'Simpan'
               )}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+          </div>
+        </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
 }

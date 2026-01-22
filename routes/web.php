@@ -93,6 +93,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/sales/{invoiceCode}', [SalesController::class, 'destroy'])->name('sales.api.destroy');
         Route::post('/sales/{invoiceCode}/cancel', [SalesController::class, 'cancel'])->name('sales.api.cancel');    
         Route::get('/sales/export', [SalesController::class, 'apiExport'])->name('sales.api.export');
+        Route::put('/sales/{invoiceCode}', [SalesController::class, 'apiUpdate'])->name('sales.api.update');
+    
+        Route::get('/items/search', [SalesController::class, 'apiSearchItems']);
+        Route::get('/items/{itemCode}/info', [SalesController::class, 'apiGetItemInfo']);    
     });
 
 });

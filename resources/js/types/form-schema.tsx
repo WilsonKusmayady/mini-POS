@@ -12,14 +12,15 @@ export type FormFieldType =
   | 'custom';
 
 export interface FormField<T = any> {
-  name: keyof T & string; // Pastikan name adalah string
+  name: keyof T & string;
   type: FormFieldType;
   label: string;
   required?: boolean;
   placeholder?: string;
-  description?: string;
+  description?: string | ((data: T) => string); // Perbarui ini
   defaultValue?: any;
-  disabled?: boolean;
+  disabled?: boolean | ((data: T) => boolean); // Perbarui ini
+  visible?: boolean | ((data: T) => boolean);
   
   // For number fields
   min?: number;
@@ -51,3 +52,4 @@ export interface FormSchema<T = any> {
   description?: (data: T) => string;
   validation?: (data: T) => Record<string, string>;
 }
+

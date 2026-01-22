@@ -79,56 +79,93 @@ class MemberService
     /**
      * Update member
      */
+    // Di MemberService.php, update method updateMember:
     public function updateMember(string $memberCode, array $data)
     {
-        $member = $this->memberRepository->findByCode($memberCode);
+        \DB::beginTransaction();
         
-        if (!$member) {
-            throw new \Exception('Member not found');
-        }
-
-        // Prepare update data
-        $updateData = [];
-        
-        if (isset($data['member_name'])) {
-            $updateData['member_name'] = $data['member_name'];
-        }
-        
-        if (isset($data['phone_number'])) {
-            $updateData['phone_number'] = $data['phone_number'];
-        }
-        
-        if (isset($data['address'])) {
-            $updateData['address'] = $data['address'];
-        }
-        
-        // Handle gender - bisa boolean atau string '0'/'1'
-        if (isset($data['gender'])) {
-            $updateData['gender'] = is_bool($data['gender']) 
-                ? $data['gender'] 
-                : ($data['gender'] === '1' || $data['gender'] === 1 || $data['gender'] === true);
-        }
-        
-        // Handle birth date
-        if (isset($data['birth_date'])) {
-            try {
-                $updateData['birth_date'] = Carbon::parse($data['birth_date'])->toDateString();
-            } catch (\Exception $e) {
-                // Tanggal tidak valid, abaikan
+        try {
+            $member = $this->memberRepository->findByCode($memberCode);
+            
+            if (!$member) {
+                throw new \Exception('Member not found');
             }
+
+            // Prepare update data
+            $updateData = [];
+            
+            // ✅ LOGIC BARU: Simpan nama member lama untuk perbandingan
+            $oldMemberName = $member->member_name;
+            
+            if (isset($data['member_name'])) {
+                $updateData['member_name'] = $data['member_name'];
+            }
+            
+            if (isset($data['phone_number'])) {
+                $updateData['phone_number'] = $data['phone_number'];
+            }
+            
+            if (isset($data['address'])) {
+                $updateData['address'] = $data['address'];
+            }
+            
+            // Handle gender - bisa boolean atau string '0'/'1'
+            if (isset($data['gender'])) {
+                $updateData['gender'] = is_bool($data['gender']) 
+                    ? $data['gender'] 
+                    : ($data['gender'] === '1' || $data['gender'] === 1 || $data['gender'] === true);
+            }
+            
+            // Handle birth date
+            if (isset($data['birth_date'])) {
+                try {
+                    $updateData['birth_date'] = Carbon::parse($data['birth_date'])->toDateString();
+                } catch (\Exception $e) {
+                    // Tanggal tidak valid, abaikan
+                }
+            }
+            
+            // Handle status
+            if (isset($data['status'])) {
+                $updateData['status'] = $data['status'];
+            }
+
+            // Jika tidak ada data yang diupdate
+            if (empty($updateData)) {
+                throw new \Exception('Tidak ada data yang diperbarui');
+            }
+
+            // Update member
+            $result = $this->memberRepository->update($memberCode, $updateData);
+            
+            // ✅ LOGIC BARU: Jika member_name berubah, update semua sales transaction terkait
+            if (isset($data['member_name']) && $data['member_name'] !== $oldMemberName) {
+                $this->updateSalesCustomerName($memberCode, $data['member_name']);
+            }
+            
+            \DB::commit();
+            
+            return $result;
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
         }
+    }
+
+    /**
+     * Update customer_name in all sales transactions for a member
+     */
+    private function updateSalesCustomerName(string $memberCode, string $newCustomerName): void
+    {
+        // Update semua sales yang terkait dengan member ini
+        $updatedCount = \App\Models\Sales::where('member_code', $memberCode)
+            ->update(['customer_name' => $newCustomerName]);
         
-        // Handle status
-        if (isset($data['status'])) {
-            $updateData['status'] = $data['status'];
+        // Log jika perlu
+        if ($updatedCount > 0) {
+            \Log::info("Updated {$updatedCount} sales transactions for member {$memberCode} with new customer_name: {$newCustomerName}");
         }
-
-        // Jika tidak ada data yang diupdate
-        if (empty($updateData)) {
-            throw new \Exception('Tidak ada data yang diperbarui');
-        }
-
-        return $this->memberRepository->update($memberCode, $updateData);
     }
 
     /**

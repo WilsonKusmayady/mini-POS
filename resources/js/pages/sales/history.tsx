@@ -96,7 +96,8 @@ export default function SalesHistory({
     closeModal, 
     editData, 
     schema, 
-    modalTitle 
+    modalTitle,
+    modalWidth 
   } = useEditModal<SalesFormData>();
   // State untuk data
   const [sales, setSales] = useState<Sale[]>(Array.isArray(initialSales) ? initialSales : []);
@@ -142,15 +143,31 @@ export default function SalesHistory({
       sales_invoice_code: sale.sales_invoice_code,
       customer_name: sale.customer_name || '',
       member_code: sale.member_code || undefined,
+      member_name: sale.member?.member_name || '',
       sales_date: sale.sales_date,
       sales_subtotal: sale.sales_subtotal || 0,
       sales_discount_value: sale.sales_discount_value || 0,
       sales_grand_total: sale.sales_grand_total || 0,
       sales_payment_method: sale.sales_payment_method || 'cash',
       sales_status: sale.sales_status,
+      items: sale.items.map(item => ({
+        item_code: item.item_code,
+        item_name: item.item_name,
+        sales_quantity: item.sales_quantity,
+        sell_price: item.sell_price,
+        sales_discount_item: item.sales_discount_item || 0,
+        sales_hasil_diskon_item: item.sales_hasil_diskon_item || 0,
+        total_item_price: item.total_item_price,
+      })),
+      can_edit_member: !sale.member_code, // Can't edit if already has member
     };
     
-    openEditModal(formData, salesEditSchema, `Edit Transaksi: ${sale.sales_invoice_code}`);
+    openEditModal(
+      formData, 
+      salesEditSchema, 
+      `Edit Transaksi: ${sale.sales_invoice_code}`,
+      '5xl' // Gunakan width lebih besar untuk sales
+    );
   };
 
   // Submit handler untuk edit modal
@@ -160,16 +177,34 @@ export default function SalesHistory({
       console.log('📤 Sending sales update data:', data);
       
       // Siapkan data untuk API
-      const apiData = {
+      const apiData: any = {
         customer_name: data.customer_name,
-        member_code: data.member_code || null,
         sales_date: data.sales_date,
         sales_discount_value: data.sales_discount_value,
         sales_payment_method: data.sales_payment_method,
         sales_status: data.sales_status,
       };
       
+      // Only include member_code if it's empty or not already set
+      if (!data.member_code || data.member_code === '') {
+        apiData.member_code = null;
+      } else if (!data.can_edit_member) {
+        // If can't edit member, use existing member_code
+        const originalSale = sales.find(s => s.sales_invoice_code === data.sales_invoice_code);
+        if (originalSale) {
+          apiData.member_code = originalSale.member_code;
+        }
+      } else {
+        apiData.member_code = data.member_code;
+      }
+      
+      // Include items if changed
+      if (data.items && data.items.length > 0) {
+        apiData.items = data.items;
+      }
+      
       console.log('🌐 Update URL:', `/api/sales/${data.sales_invoice_code}`);
+      console.log('📦 Request data:', apiData);
       
       const response = await axios.put(
         `/api/sales/${data.sales_invoice_code}`,
@@ -1180,6 +1215,8 @@ export default function SalesHistory({
         deleteLoading={editDeleteLoading}
         showDelete={true}
         deleteConfirmMessage="Apakah Anda yakin ingin menghapus transaksi ini?"
+        width={modalWidth} // Gunakan modalWidth dari hook
+        maxHeight="85vh" // Sesuaikan max height
       />
       <Modal />
     </AppLayout>
