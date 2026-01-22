@@ -27,6 +27,7 @@ export interface Item {
 
 interface ItemCombobox {
     value?: string;
+    displayValue?: string;
     onSelect: (item: Item) => void;
     placeholder?: string;
     className?: string;
@@ -36,6 +37,7 @@ interface ItemCombobox {
 
 export function ItemCombobox({
     value,
+    displayValue,
     onSelect,
     placeholder = "Pilih Item...",
     className,
@@ -114,9 +116,10 @@ export function ItemCombobox({
     };
 
     // Label yang ditampilkan pada tombol
-    const displayLabel = items.find(i => i.item_code === value)?.item_name
-    || selectedItemCache?.item_name
-    || (value ? `Item ${value}` : placeholder);
+     const displayLabel = displayValue // ✅ Prioritaskan displayValue dari parent
+        || items.find(i => i.item_code === value)?.item_name
+        || selectedItemCache?.item_name
+        || (value ? `Item ${value}` : placeholder);
 
     // Fungsi untuk mengecek apakah item disabled
     const isItemDisabled = (item: Item): boolean => {
@@ -177,16 +180,16 @@ export function ItemCombobox({
                                         key={item.item_code}
                                         value={item.item_code} 
                                         onSelect={() => {
-                                            if (!itemDisabled) {
-                                                onSelect(item);
-                                                setSelectedItemCache(item); 
-                                                setOpen(false);
-                                            }
+                                            if (itemDisabled) return;
+
+                                            onSelect(item);
+                                            setSelectedItemCache(item);
+                                            setOpen(false);
                                         }}
                                         disabled={itemDisabled}
                                         className={cn(
                                             "relative",
-                                            itemDisabled && "opacity-60 cursor-not-allowed"
+                                            itemDisabled && "opacity-60 cursor-not-allowed pointer-events-none"
                                         )}
                                     >
                                         <Check

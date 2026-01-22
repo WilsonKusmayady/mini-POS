@@ -3,7 +3,7 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Download, Printer, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react';
+import { Plus, Pencil, Download, Printer, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'; // Tambah ArrowUpDown, ChevronUp, ChevronDown
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { salesViewSchema } from '@/view-schemas/sales.schema';
 import { renderViewSchema } from '@/hooks/use-view-schema';
 import { useViewModal } from '@/components/ui/view-modal';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { FilterModal, FilterParams } from '@/components/ui/filter-modal';
@@ -83,6 +83,11 @@ interface SalesHistoryProps {
   filters: any;
 }
 
+interface SortConfig {
+  key: keyof Sale | string;
+  direction: 'asc' | 'desc';
+}
+
 export default function SalesHistory({ 
   sales: initialSales = [], 
   pagination: initialPagination,
@@ -125,9 +130,122 @@ export default function SalesHistory({
     sales_date_start: initialFilters?.start_date || '',
     sales_date_end: initialFilters?.end_date || '',
   });
+
+  // State untuk sorting
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'created_at',
+    direction: 'desc'
+  });
   
   // State untuk UI
   const [perPage, setPerPage] = useState<string>(initialPagination?.per_page?.toString() || '10');
+
+  const handleSort = (key: keyof Sale | string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      // Jika sudah sort descending, reset ke default
+      setSortConfig({ key: 'created_at', direction: 'desc' });
+      return;
+    }
+    
+    setSortConfig({ key, direction });
+  };
+
+  // Fungsi untuk mendapatkan icon sorting
+  const getSortIcon = (key: string) => {
+    if (sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    
+    if (sortConfig.direction === 'asc') {
+      return <ChevronUp className="ml-2 h-4 w-4" />;
+    }
+    
+    return <ChevronDown className="ml-2 h-4 w-4" />;
+  };
+
+  // Fungsi untuk mendapatkan label kolom
+  const getColumnLabel = (key: string): string => {
+    const labels: Record<string, string> = {
+      'sales_invoice_code': 'Kode Invoice',
+      'sales_date': 'Tanggal',
+      'customer_name': 'Pelanggan',
+      'sales_payment_method': 'Payment Method',
+      'sales_grand_total': 'Grand Total',
+      'created_at': 'Tanggal Buat',
+    };
+    
+    return labels[key] || key;
+  };
+
+  // Sort data secara lokal
+  const sortedSales = useMemo(() => {
+    if (!sortConfig.key) return sales;
+    
+    return [...sales].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+      
+      // Handle nested properties
+      switch (sortConfig.key) {
+        case 'sales_date':
+          aValue = new Date(a.sales_date).getTime();
+          bValue = new Date(b.sales_date).getTime();
+          break;
+
+        case 'created_at':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+
+        case 'customer_name':
+          aValue = a.customer_name || a.member?.member_name || '';
+          bValue = b.customer_name || b.member?.member_name || '';
+          break;
+
+        case 'sales_payment_method':
+          const paymentMethodMap: Record<string, string> = {
+            cash: 'Tunai',
+            debit: 'Debit',
+            qris: 'QRIS',
+          };
+          aValue = paymentMethodMap[a.sales_payment_method] || a.sales_payment_method;
+          bValue = paymentMethodMap[b.sales_payment_method] || b.sales_payment_method;
+          break;
+
+        default:
+          aValue = a[sortConfig.key as keyof Sale];
+          bValue = b[sortConfig.key as keyof Sale];
+      }
+      
+      // Handle undefined/null values
+      if (aValue === undefined || aValue === null) aValue = '';
+      if (bValue === undefined || bValue === null) bValue = '';
+      
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc'
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+
+      // ✅ STRING
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue, 'id-ID', { numeric: true })
+          : bValue.localeCompare(aValue, 'id-ID', { numeric: true });
+      }
+      
+      // Fallback string comparison
+      const aStr = String(aValue);
+      const bStr = String(bValue);
+      return sortConfig.direction === 'asc' 
+        ? aStr.localeCompare(bStr, 'id-ID')
+        : bStr.localeCompare(aStr, 'id-ID');
+    });
+  }, [sales, sortConfig]);
 
   const viewSale = (sale: Sale) => {
     openModal(
@@ -167,6 +285,34 @@ export default function SalesHistory({
       salesEditSchema, 
       `Edit Transaksi: ${sale.sales_invoice_code}`,
       '5xl' // Gunakan width lebih besar untuk sales
+    );
+  };
+
+   const renderSortingIndicator = () => {
+    if (!sortConfig.key || sortConfig.key === 'created_at') return null;
+    
+    const currentSortLabel = getColumnLabel(sortConfig.key);
+    const currentSortDirection = sortConfig.direction === 'asc' ? 'A-Z / Kecil ke Besar' : 'Z-A / Besar ke Kecil';
+    
+    return (
+      <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <ArrowUpDown className="h-3 w-3" />
+          <span>Disortir berdasarkan:</span>
+          <Badge variant="outline" className="ml-1">
+            {currentSortLabel} ({currentSortDirection})
+          </Badge>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSortConfig({ key: 'created_at', direction: 'desc' })}
+          className="h-6 px-2 text-xs"
+        >
+          <X className="h-3 w-3 mr-1" />
+          Reset Sort
+        </Button>
+      </div>
     );
   };
 
@@ -480,76 +626,60 @@ export default function SalesHistory({
   };
 
   // Fetch data dengan pagination
-  const fetchSales = async (page = pagination.current_page) => {
-      setLoading(true);
-      try {
-          // Konversi filter ke format yang sesuai dengan backend
-          const filterParams = convertSalesFiltersToParams(activeFilters);
-          
-          const params = new URLSearchParams({
-              page: page.toString(),
-              per_page: perPage,
-              ...(searchInput && { search: searchInput }),
-              ...filterParams
-          });
+   const fetchSales = async (page = pagination.current_page) => {
+    setLoading(true);
+    try {
+      // Konversi filter ke format yang sesuai dengan backend
+      const filterParams = convertSalesFiltersToParams(activeFilters);
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage,
+        ...(searchInput && { search: searchInput }),
+        ...filterParams,
+        // Tambahkan sorting parameter untuk backend (optional)
+        sort_by: sortConfig.key,
+        sort_dir: sortConfig.direction,
+      });
 
-          // console.log('🔍 Fetching sales with params:', {
-          //     search: searchInput,
-          //     ...filterParams,
-          //     page,
-          //     per_page: perPage
-          // });
-          
-          const url = `/api/sales?${params}`;
-          // console.log('🌐 API URL:', url);
-          
-          const response = await axios.get(url);
-          
-          // console.log('✅ Sales fetched successfully:', {
-          //     total: response.data.total || 0,
-          //     count: response.data.data?.length || 0,
-          //     filtersUsed: {
-          //         search: searchInput,
-          //         ...filterParams
-          //     }
-          // });
-          
-          if (response.data && response.data.data) {
-              setSales(Array.isArray(response.data.data) ? response.data.data : []);
-              setPagination({
-                  current_page: response.data.current_page || 1,
-                  per_page: response.data.per_page || parseInt(perPage),
-                  total: response.data.total || 0,
-                  last_page: response.data.last_page || 1,
-                  from: response.data.from || 0,
-                  to: response.data.to || 0,
-              });
-          } else {
-              setSales([]);
-              setPagination({
-                  current_page: 1,
-                  per_page: parseInt(perPage),
-                  total: 0,
-                  last_page: 1,
-                  from: 0,
-                  to: 0,
-              });
-              toast.error('Data yang diterima tidak valid');
-          }
-      } catch (error: any) {
-          console.error('❌ Error fetching sales:', error);
-          
-          // Debug error response
-          if (error.response) {
-              console.error('Error response data:', error.response.data);
-              console.error('Error response status:', error.response.status);
-          }
-          
-          toast.error('Gagal memuat data penjualan');
-          setSales([]);
-      } finally {
-          setLoading(false);
+      const url = `/api/sales?${params}`;
+      const response = await axios.get(url);
+      
+      if (response.data && response.data.data) {
+        setSales(Array.isArray(response.data.data) ? response.data.data : []);
+        setPagination({
+          current_page: response.data.current_page || 1,
+          per_page: response.data.per_page || parseInt(perPage),
+          total: response.data.total || 0,
+          last_page: response.data.last_page || 1,
+          from: response.data.from || 0,
+          to: response.data.to || 0,
+        });
+      } else {
+        setSales([]);
+        setPagination({
+          current_page: 1,
+          per_page: parseInt(perPage),
+          total: 0,
+          last_page: 1,
+          from: 0,
+          to: 0,
+        });
+        toast.error('Data yang diterima tidak valid');
       }
+    } catch (error: any) {
+      console.error('❌ Error fetching sales:', error);
+      
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      
+      toast.error('Gagal memuat data penjualan');
+      setSales([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle filter change dari modal
@@ -668,6 +798,46 @@ export default function SalesHistory({
     return String(value);
   };
 
+   const renderTableHeader = () => {
+    const headers = [
+      { key: 'sales_invoice_code', label: 'Kode Invoice', sortable: true, className: 'w-[150px]' },
+      { key: 'sales_date', label: 'Tanggal', sortable: true },
+      { key: 'customer_name', label: 'Pelanggan', sortable: true },
+      { key: 'items', label: 'Barang', sortable: false },
+      { key: 'sales_payment_method', label: 'Payment Method', sortable: true },
+      { key: 'sales_grand_total', label: 'Grand Total', sortable: true, className: 'text-right' },
+      { key: 'sales_status', label: 'Status', sortable: false },
+      { key: 'actions', label: 'Aksi', sortable: false, className: 'text-right' },
+    ];
+
+    return (
+      <TableHeader>
+        <TableRow>
+          {headers.map((header) => (
+            <TableHead 
+              key={header.key} 
+              className={header.className || ''}
+            >
+              {header.sortable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleSort(header.key)}
+                  className="h-auto p-0 font-medium hover:bg-transparent hover:text-primary"
+                >
+                  {header.label}
+                  {getSortIcon(header.key)}
+                </Button>
+              ) : (
+                header.label
+              )}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+    );
+  };
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -675,6 +845,13 @@ export default function SalesHistory({
     }, 500);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSales(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [sortConfig]);
 
   // Fetch when perPage changes
   useEffect(() => {
@@ -838,7 +1015,7 @@ export default function SalesHistory({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Cari kode invoice atau nama pelanggan..."
+                placeholder="Cari kode invoice, nama, tanggal (22 Jan), payment (cash/debit/qris), total (150rb)..."
                 className="pl-9 w-full"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -1038,20 +1215,10 @@ export default function SalesHistory({
             </div>
           </CardHeader>
           <CardContent>
+            {renderSortingIndicator()}
             <div className="rounded-md border">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[150px]">Kode Invoice</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Pelanggan</TableHead>
-                    <TableHead>Barang</TableHead>
-                    <TableHead>Payment Method</TableHead>
-                    <TableHead className="text-right">Grand Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
+                {renderTableHeader()}
                 <TableBody>
                   {loading ? (
                     // Loading skeleton
@@ -1067,14 +1234,14 @@ export default function SalesHistory({
                         <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                       </TableRow>
                     ))
-                  ) : !sales || !Array.isArray(sales) || sales.length === 0 ? (
+                  ) : !sortedSales  || !Array.isArray(sortedSales) || sortedSales.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Tidak ada data transaksi
                       </TableCell>
                     </TableRow>
                   ) : (
-                    sales.map((sale) => (
+                    sortedSales.map((sale) => (
                       <TableRow key={sale.sales_invoice_code}>
                         <TableCell className="font-mono font-medium">
                           {sale.sales_invoice_code || '-'}
@@ -1142,11 +1309,15 @@ export default function SalesHistory({
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditSale(sale)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
+                              <DropdownMenuItem asChild>
+                                <Link
+                                  href={appRoutes.sales.edit(sale.sales_invoice_code)}
+                                  className="flex items-center"
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Link>
                               </DropdownMenuItem>
-                              
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={appRoutes.sales.nota(sale.sales_invoice_code)}

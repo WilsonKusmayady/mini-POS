@@ -383,6 +383,40 @@ export function EditModal<T extends Record<string, any>>({
           </div>
         );
 
+        case 'radio':
+          return (
+            <div className="space-y-2">
+              <Label>
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+
+              <RadioGroup
+                value={value !== undefined && value !== null ? String(value) : ''}
+                onValueChange={(val) => handleChange(fieldName, val)}
+                disabled={isDisabled}
+                className="flex gap-6"
+              >
+                {field.options?.map((option: any) => (
+                  <div key={String(option.value)} className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value={String(option.value)}
+                      id={`${fieldName}-${option.value}`}
+                    />
+                    <Label htmlFor={`${fieldName}-${option.value}`}>
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              {error && <p className="text-sm text-red-500">{error}</p>}
+              {fieldDescription && (
+                <p className="text-sm text-muted-foreground">{fieldDescription}</p>
+              )}
+            </div>
+          );
+
       case 'custom':
         return field.render ? field.render(value, (val: any) => handleChange(fieldName, val)) : null;
 

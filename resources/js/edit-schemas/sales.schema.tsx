@@ -104,6 +104,7 @@ export const salesEditSchema: FormSchema<SalesFormData> = {
           <SalesItemsEditor 
             value={value as SalesItemFormData[]} 
             onChange={onChange} 
+            
           />
         );
       },

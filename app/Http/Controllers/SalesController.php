@@ -59,7 +59,14 @@ class SalesController extends Controller
         }
     }
 
-    
+    public function edit(string $invoiceCode)
+    {
+        $sale = $this->saleService->getSale($invoiceCode);
+
+        return Inertia::render('sales/edit', [
+            'sale' => $sale
+        ]);
+    }
     /**
      * API: Get paginated sales for AJAX requests
      */

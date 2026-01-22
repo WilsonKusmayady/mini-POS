@@ -242,7 +242,7 @@ class SalesService
     private function updateMemberNameFromSale(string $memberCode, string $customerName): bool
     {
         // Cari member berdasarkan member_code
-        $member = \App\Models\Member::where('member_code', $memberCode)->first();
+        $member = Member::where('member_code', $memberCode)->first();
         
         if (!$member) {
             throw new \Exception('Member tidak ditemukan');
@@ -266,10 +266,17 @@ class SalesService
                 throw new \Exception('Item quantity must be greater than 0');
             }
             
-            // Check if item exists
-            $itemExists = \App\Models\Item::where('item_code', $item['item_code'])->exists();
+            // Check if item exists and get stock
+            $itemExists = \App\Models\Item::where('item_code', $item['item_code'])->first();
             if (!$itemExists) {
                 throw new \Exception("Item dengan kode {$item['item_code']} tidak ditemukan");
+            }
+            
+            // ✅ Validasi stok jika ada informasi stok di data
+            if (isset($item['stock'])) {
+                if ($item['sales_quantity'] > $item['stock']) {
+                    throw new \Exception("Stok tidak cukup untuk item: {$item['item_code']}. Stok tersedia: {$item['stock']}");
+                }
             }
         }
         
@@ -372,8 +379,8 @@ class SalesService
             'item_code' => $item->item_code,
             'item_name' => $item->item_name,
             'sell_price' => (float) $item->sell_price,
-            'stock' => (int) $item->stock,
-            'unit' => $item->unit,
+            'stock' => (int) $item->item_stock,
+            'unit' => 'pcs',
         ];
     }
    
@@ -677,9 +684,7 @@ class SalesService
         return $validated;
     }
 
-    /**
-     * Format sale response
-     */
+    // Di formatSaleResponse:
     private function formatSaleResponse(Sales $sale): array
     {
         return [
@@ -696,14 +701,19 @@ class SalesService
             'user_id' => $sale->user_id,
             'created_at' => $sale->created_at->toISOString(),
             'items' => $sale->sales_details->map(function ($detail) {
+                // Ambil data item dengan stock
+                $item = $detail->item;
+                
                 return [
                     'item_code' => $detail->item_code,
-                    'item_name' => $detail->item->item_name ?? 'Unknown Item',
+                    'item_name' => $item->item_name ?? 'Unknown Item',
                     'sales_quantity' => $detail->sales_quantity,
                     'sell_price' => (float) $detail->sell_price,
                     'sales_discount_item' => (float) $detail->sales_discount_item,
                     'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
                     'total_item_price' => (float) $detail->total_item_price,
+                    'stock' => $item ? (int) $item->item_stock : 0, // ✅ Gunakan item_stock
+                    'unit' => 'pcs', // Item tidak punya kolom unit, default ke 'pcs'
                 ];
             })->toArray(),
             'user' => $sale->user ? [
@@ -718,6 +728,7 @@ class SalesService
         ];
     }
 
+    // Di formatSaleList:
     private function formatSaleList($sale): array
     {
         return [
@@ -739,14 +750,18 @@ class SalesService
             'user_id' => $sale->user_id,
             'created_at' => $sale->created_at,
             'items' => $sale->sales_details->map(function ($detail) {
+                $item = $detail->item;
+                
                 return [
                     'item_code' => $detail->item_code,
-                    'item_name' => $detail->item->item_name ?? 'Unknown',
+                    'item_name' => $item->item_name ?? 'Unknown',
                     'sales_quantity' => $detail->sales_quantity,
                     'sell_price' => (float) $detail->sell_price,
                     'sales_discount_item' => (float) $detail->sales_discount_item,
                     'sales_hasil_diskon_item' => (float) $detail->sales_hasil_diskon_item,
                     'total_item_price' => (float) $detail->total_item_price,
+                    'stock' => $item ? (int) $item->item_stock : 0, // ✅ Gunakan item_stock
+                    'unit' => 'pcs', // Default unit
                 ];
             })->toArray(),
         ];

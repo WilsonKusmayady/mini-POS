@@ -5,17 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Minus, Trash2, Search } from 'lucide-react';
+import { Plus, Minus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
-
-interface ItemSearchResult {
-  item_code: string;
-  item_name: string;
-  sell_price: number;
-  stock: number;
-  unit: string;
-}
+import { ItemCombobox, Item } from '@/components/item-combobox';
+import { Badge } from '@/components/ui/badge';
 
 interface SalesItemFormData {
   item_code: string;
@@ -36,50 +29,53 @@ interface SalesItemsEditorProps {
 
 export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
   const [items, setItems] = useState<SalesItemFormData[]>(value || []);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<ItemSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  // Debounce untuk mencegah terlalu banyak render
-  const updateParent = useCallback((newItems: SalesItemFormData[]) => {
-    onChange(newItems);
-  }, [onChange]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Sync dengan parent hanya ketika value berubah dari parent
   useEffect(() => {
-    console.log('SalesItemsEditor: value changed from parent', value);
-    setItems(value || []);
-  }, [value]);
+    const fetchMissingStock = async () => {
+        const updatedItems = await Promise.all(
+        items.map(async (item) => {
+            if (item.stock !== undefined) return item;
+
+            try {
+            const res = await fetch(`/api/items/${item.item_code}/info`);
+            const json = await res.json();
+
+            if (json.success) {
+                return {
+                ...item,
+                stock: json.data.stock,
+                unit: json.data.unit,
+                sell_price: item.sell_price || json.data.sell_price,
+                };
+            }
+            } catch (e) {
+            console.error('Gagal ambil stok item', item.item_code);
+            }
+
+            return item;
+        })
+        );
+
+        setItems(updatedItems);
+    };
+
+    if (items.some(i => i.stock === undefined)) {
+        fetchMissingStock();
+    }
+    }, [items]);
 
   // Update parent hanya ketika items benar-benar berubah
   useEffect(() => {
     console.log('SalesItemsEditor: items changed', items);
     // Hanya update parent jika items berbeda dengan value sebelumnya
     if (JSON.stringify(items) !== JSON.stringify(value)) {
-      updateParent(items);
+      onChange(items);
     }
-  }, [items, updateParent, value]);
+  }, [items, onChange, value]);
 
-  const handleSearchItem = async () => {
-    if (!searchTerm.trim()) {
-      toast.error('Masukkan kode atau nama item');
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const response = await axios.get(`/api/items/search?q=${encodeURIComponent(searchTerm)}`);
-      setSearchResults(response.data.data || []);
-    } catch (error: any) {
-      console.error('Error searching items:', error);
-      toast.error('Gagal mencari item');
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleAddItem = (item: ItemSearchResult) => {
+  const handleAddItem = (item: Item) => {
     // Check if item already exists
     const existingItem = items.find(i => i.item_code === item.item_code);
     
@@ -92,12 +88,12 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
         item_code: item.item_code,
         item_name: item.item_name,
         sales_quantity: 1,
-        sell_price: item.sell_price,
+        sell_price: item.item_price,
         sales_discount_item: 0,
         sales_hasil_diskon_item: 0,
-        total_item_price: item.sell_price * 1,
-        stock: item.stock,
-        unit: item.unit,
+        total_item_price: item.item_price * 1,
+        stock: item.item_stock,
+        unit: 'pcs',
       };
       
       setItems(prev => {
@@ -106,9 +102,6 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
         return newItems;
       });
     }
-    
-    setSearchTerm('');
-    setSearchResults([]);
   };
 
   const handleRemoveItem = useCallback((itemCode: string) => {
@@ -192,101 +185,82 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
     return items.reduce((sum, item) => sum + item.sales_hasil_diskon_item, 0);
   }, [items]);
 
-  // Handle Enter key for search
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearchItem();
-    }
+  // Dapatkan daftar item_code yang sudah dipilih untuk disabled items
+  const getDisabledItems = () => {
+    return items.map(item => item.item_code);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Item Search */}
+    <div className="space-y-6">
+      {/* Item Selection */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <Label>Tambah Item</Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Cari item dengan kode atau nama..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-              </div>
-              <Button 
-                onClick={handleSearchItem} 
-                disabled={isSearching || !searchTerm.trim()}
-              >
-                {isSearching ? 'Searching...' : <Search className="h-4 w-4" />}
-              </Button>
+            <div className="flex justify-between items-center">
+              <Label>Tambah Item</Label>
+              <span className="text-sm text-muted-foreground">
+                {items.length} item
+              </span>
             </div>
-
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="border rounded-md max-h-40 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Kode</TableHead>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>Harga</TableHead>
-                      <TableHead>Stok</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {searchResults.map((item) => (
-                      <TableRow key={item.item_code}>
-                        <TableCell className="font-mono">{item.item_code}</TableCell>
-                        <TableCell>{item.item_name}</TableCell>
-                        <TableCell>{item.sell_price.toLocaleString('id-ID')}</TableCell>
-                        <TableCell>{item.stock}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddItem(item)}
-                            disabled={item.stock === 0}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            
+            <div className="space-y-3">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <ItemCombobox
+                    onSelect={handleAddItem}
+                    placeholder="Pilih item..."
+                    disabled={isLoading}
+                    disabledItems={getDisabledItems()}
+                  />
+                </div>
+                <Button 
+                  onClick={() => {
+                    // Untuk manual add, bisa tambahkan tombol atau biarkan hanya combobox
+                  }}
+                  disabled={true}
+                  variant="outline"
+                  className="opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+              
+              <div className="text-sm text-muted-foreground">
+                • Pilih item dari dropdown untuk menambahkannya ke daftar
+                • Item yang sudah dipilih tidak akan muncul lagi di dropdown
+                • Item dengan stok habis akan ditandai
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Items Table */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Daftar Item</Label>
-              <span className="text-sm text-muted-foreground">
-                {items.length} item
-              </span>
-            </div>
-
-            {items.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Belum ada item. Tambahkan item terlebih dahulu.
+      {items.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-lg font-semibold">Daftar Item</Label>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    Total: {calculateSubtotal().toLocaleString('id-ID')}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Diskon: -{calculateTotalDiscount().toLocaleString('id-ID')}
+                  </Badge>
+                </div>
               </div>
-            ) : (
+
               <div className="border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[200px]">Item</TableHead>
-                      <TableHead className="w-32">Qty</TableHead>
-                      <TableHead className="w-40">Harga</TableHead>
-                      <TableHead className="w-32">Diskon</TableHead>
-                      <TableHead className="w-40">Subtotal</TableHead>
+                      <TableHead className="w-24">Qty</TableHead>
+                      <TableHead className="w-32">Harga</TableHead>
+                      <TableHead className="w-24">Diskon</TableHead>
+                      <TableHead className="w-32">Subtotal</TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -296,46 +270,37 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
                         <TableCell>
                           <div>
                             <div className="font-medium">{item.item_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {item.item_code} • Stok: {item.stock} {item.unit}
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>Kode: {item.item_code}</span>
+                              <span className="text-red-600">•</span>
+                              <span>Stok: {item.stock}</span>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleQuantityChange(item.item_code, item.sales_quantity - 1)}
-                              disabled={item.sales_quantity <= 1}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
                             <Input
                               type="number"
                               min="1"
                               value={item.sales_quantity}
                               onChange={(e) => handleQuantityChange(item.item_code, parseInt(e.target.value) || 1)}
-                              className="w-16 text-center"
+                              className="w-16 text-center h-8"
                             />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleQuantityChange(item.item_code, item.sales_quantity + 1)}
-                              disabled={item.stock !== undefined && item.sales_quantity >= item.stock}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={item.sell_price}
-                            onChange={(e) => handlePriceChange(item.item_code, parseFloat(e.target.value) || 0)}
-                            className="w-full"
-                            min="0"
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                              Rp
+                            </span>
+                            <Input
+                              type="number"
+                              value={item.sell_price}
+                              onChange={(e) => handlePriceChange(item.item_code, parseFloat(e.target.value) || 0)}
+                              className="w-full pl-10"
+                              min="0"
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -343,7 +308,7 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
                               type="number"
                               min="0"
                               max="100"
-                              step="0.01"
+                              step="1"
                               value={item.sales_discount_item}
                               onChange={(e) => handleDiscountChange(item.item_code, parseFloat(e.target.value) || 0)}
                               className="w-20"
@@ -352,14 +317,21 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {item.total_item_price.toLocaleString('id-ID')}
+                          <div className="flex flex-col">
+                            <span>{item.total_item_price.toLocaleString('id-ID')}</span>
+                            {item.sales_discount_item > 0 && (
+                              <span className="text-xs text-red-600">
+                                -{item.sales_hasil_diskon_item.toLocaleString('id-ID')}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => handleRemoveItem(item.item_code)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -369,38 +341,59 @@ export function SalesItemsEditor({ value, onChange }: SalesItemsEditorProps) {
                   </TableBody>
                 </Table>
               </div>
-            )}
 
-            {/* Summary */}
-            {items.length > 0 && (
+              {/* Summary */}
               <div className="flex justify-end">
-                <div className="w-64 space-y-2">
-                  <div className="flex justify-between">
+                <div className="w-80 space-y-3 bg-muted/50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium">
+                    <span className="font-medium text-lg">
                       {calculateSubtotal().toLocaleString('id-ID')}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Diskon Item:</span>
-                    <span className="text-red-600">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Total Diskon Item:</span>
+                    <span className="text-red-600 font-medium">
                       -{calculateTotalDiscount().toLocaleString('id-ID')}
                     </span>
                   </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between font-bold">
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center font-bold text-lg">
                       <span>Total:</span>
-                      <span>
+                      <span className="text-primary">
                         {(calculateSubtotal() - calculateTotalDiscount()).toLocaleString('id-ID')}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {items.length === 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+                <Plus className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">Belum ada item</h3>
+              <p className="text-muted-foreground mb-6">
+                Pilih item dari dropdown di atas untuk menambahkannya ke transaksi
+              </p>
+              <div className="inline-flex items-center justify-center px-4 py-2 border border-dashed rounded-lg text-sm text-muted-foreground">
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah item pertama
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
+
+// Tambahkan import untuk Badge jika belum ada

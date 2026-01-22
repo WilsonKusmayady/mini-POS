@@ -71,7 +71,8 @@ Route::middleware('auth')->group(function () {
             return Inertia::render('sales/create');
         })->name('create');
         Route::get('/{invoiceCode}/nota', [SalesController::class, 'showNota'])->name('sales.nota');
-        Route::get('/export', [SalesController::class, 'export'])->name('export');    
+        Route::get('/export', [SalesController::class, 'export'])->name('export');
+        Route::get('/{invoiceCode}/edit', [SalesController::class, 'edit'])->name('sales.edit');    
     });
 
     // --- INTERNAL API ROUTES (AJAX Helper) ---
@@ -96,7 +97,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/sales/{invoiceCode}', [SalesController::class, 'apiUpdate'])->name('sales.api.update');
     
         Route::get('/items/search', [SalesController::class, 'apiSearchItems']);
-        Route::get('/items/{itemCode}/info', [SalesController::class, 'apiGetItemInfo']);    
+        Route::get('/items/{itemCode}/info', [SalesController::class, 'apiGetItemInfo']);
+        Route::get('/items/{itemCode}/stock', [SalesController::class, 'apiGetItemInfo']);    
+    
     });
 
 });
