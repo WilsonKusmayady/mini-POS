@@ -27,8 +27,12 @@ class PurchaseController extends Controller
         // 1. Ambil filter dari URL
         $filters = $request->only([
             'search', 'supplier_id', 'user_id', 
-            'start_date', 'end_date', 'min_total', 'max_total'
+            'start_date', 'end_date', 'min_total', 'max_total', 'show_inactive'
         ]);
+
+        if (isset($filters['show_inactive'])) {
+            $filters['show_inactive'] = filter_var($filters['show_inactive'], FILTER_VALIDATE_BOOLEAN);
+        }
 
         $fileName = 'purchases_export_' . date('Y-m-d_H-i-s') . '.csv';
 
@@ -86,6 +90,7 @@ class PurchaseController extends Controller
             'end_date' => 'nullable|date',
             'min_total' => 'nullable|numeric',
             'max_total' => 'nullable|numeric',
+            'show_inactive' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -104,6 +109,10 @@ class PurchaseController extends Controller
                 'max_total',
                 'show_inactive'
             ]);
+
+            if (isset($filters['show_inactive'])) {
+                $filters['show_inactive'] = filter_var($filters['show_inactive'], FILTER_VALIDATE_BOOLEAN);
+            }
             
             $perPage = $request->get('per_page', 10);
 

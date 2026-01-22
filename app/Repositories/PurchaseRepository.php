@@ -3,6 +3,7 @@ namespace App\Repositories;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Repositories\Contracts\PurchaseRepositoryInterface;
+Use Illuminate\Support\Facades\DB;
 
 class PurchaseRepository implements PurchaseRepositoryInterface {
     public function createPurchase(array $data) {
@@ -28,7 +29,8 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
     }
 
     public function getPaginated(array $filters = [], int $perPage = 10) {
-        $query = Purchase::with(['supplier', 'user']);
+        try{
+            $query = Purchase::with(['supplier', 'user']);
 
         // Logic Filter show inactvie active
         if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
@@ -40,23 +42,22 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
             $search = $filters['search'];
             
             $query->where(function($q) use ($search) {
-                // A. Cari berdasarkan No Invoice
-                $q->where('purchase_invoice_number', 'ilike', '%' . $search . '%')
-                
-                // B. Cari berdasarkan Nama Supplier (Relasi)
-                ->orWhereHas('supplier', function($sq) use ($search) {
-                    $sq->where('supplier_name', 'ilike', '%' . $search . '%');
-                })
-                
-                // C. Cari berdasarkan Nama User/Operator (Relasi)
-                ->orWhereHas('user', function($uq) use ($search) {
-                    $uq->where('user_name', 'ilike', '%' . $search . '%');
-                });
+                $searchParams = ['purchase_invoice_number', 'supplier_name', 'user_name', 'purchase_date'];
 
-                // D. (Opsional) Cari berdasarkan Tanggal jika input format tanggal (YYYY-MM-DD)
-                if (preg_match("/^\d{4}-\d{2}-\d{2}$/", $search)) {
-                   $q->orWhereDate('purchase_date', $search);
-                }
+                foreach ($searchParams as $param) {
+                    if (in_array($param, ['supplier_name', 'user_name'])) {
+                        $relation = $param === 'supplier_name' ? 'supplier' : 'user';
+                        $q->orWhereHas($relation, function($sq) use ($param, $search) {
+                            $sq->where($param, 'ilike', '%' . $search . '%');
+                        });
+                    }else if($param === 'purchase_date') {
+                        $q->orWhere(DB::raw("to_char(purchase_date, 'DD Mon YYYY')"), 
+                        'ilike', '%' . $search . '%');
+                   }
+                    else {
+                        $q->orWhere($param, 'ilike', '%' . $search . '%');
+                    }
+                };
             });       
         } 
 
@@ -89,10 +90,20 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         return $query->orderBy('purchase_date', 'desc')
                      ->orderBy('purchase_invoice_number', 'desc')
                      ->paginate($perPage);
+        } catch (\Exception $e) {
+            \Log::error($e);
+            return [];
+        }
     }
 
     public function getForExport(array $filters = []) {
         $query = Purchase::with(['supplier', 'user']);
+
+        if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
 
         // COPY PASTE LOGIC FILTER
         if (!empty($filters['search'])) {
