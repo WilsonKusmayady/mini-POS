@@ -32,64 +32,38 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         try{
             $query = Purchase::with(['supplier', 'user']);
 
-        // Logic Filter show inactvie active
-        if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
-            $query->onlyTrashed();
-        }
+            // Logic Filter show inactvie active
+            if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
+                $query->onlyTrashed();
+            }
 
-        // Search Filter
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            
-            $query->where(function($q) use ($search) {
-                $searchParams = ['purchase_invoice_number', 'supplier_name', 'user_name', 'purchase_date'];
+            // Search Filter
+            if (!empty($filters['search'])) {
+                $search = $filters['search'];
+                
+                $query->where(function($q) use ($search) {
+                    $searchParams = ['purchase_invoice_number', 'supplier_name', 'user_name', 'purchase_date'];
 
-                foreach ($searchParams as $param) {
-                    if (in_array($param, ['supplier_name', 'user_name'])) {
-                        $relation = $param === 'supplier_name' ? 'supplier' : 'user';
-                        $q->orWhereHas($relation, function($sq) use ($param, $search) {
-                            $sq->where($param, 'ilike', '%' . $search . '%');
-                        });
-                    }else if($param === 'purchase_date') {
-                        $q->orWhere(DB::raw("to_char(purchase_date, 'DD Mon YYYY')"), 
-                        'ilike', '%' . $search . '%');
-                   }
-                    else {
-                        $q->orWhere($param, 'ilike', '%' . $search . '%');
+                    foreach ($searchParams as $param) {
+                        if (in_array($param, ['supplier_name', 'user_name'])) {
+                            $relation = $param === 'supplier_name' ? 'supplier' : 'user';
+                            $q->orWhereHas($relation, function($sq) use ($param, $search) {
+                                $sq->where($param, 'ilike', '%' . $search . '%');
+                            });
+                        }else if($param === 'purchase_date') {
+                            $q->orWhere(DB::raw("to_char(purchase_date, 'DD Mon YYYY')"), 
+                            'ilike', '%' . $search . '%');
                     }
-                };
-            });       
-        } 
+                        else {
+                            $q->orWhere($param, 'ilike', '%' . $search . '%');
+                        }
+                    };
+                });       
+            } 
 
-        // Date Range Filter
-        if(!empty($filters['start_date'])) {
-            $query->whereDate('purchase_date', '>=', $filters['start_date']);
-        }
-        if(!empty($filters['end_date'])) {
-            $query->whereDate('purchase_date', '<=', $filters['end_date']);
-        }
-
-        // Supplier Filter
-        if(!empty($filters['supplier_id'])) {
-            $query->where('supplier_id', $filters['supplier_id']);
-        }
-
-        // Operator/User Filter
-        if(!empty($filters['user_id'])) {
-            $query->where('user_id', $filters['user_id']);
-        }
-
-        // Price Range Filter
-        if(!empty($filters['min_total'])) {
-            $query->where('purchase_grand_total', '>=', $filters['min_total']);
-        }
-        if(!empty($filters['max_total'])) {
-            $query->where('purchase_grand_total', '<=', $filters['max_total']);
-        }
-
-        return $query->orderBy('purchase_date', 'desc')
-                     ->orderBy('purchase_invoice_number', 'desc')
-                     ->paginate($perPage);
+            return $query->orderBy('purchase_date', 'desc')
+                        ->orderBy('purchase_invoice_number', 'desc')
+                        ->paginate($perPage);
         } catch (\Exception $e) {
             \Log::error($e);
             return [];
