@@ -57,6 +57,8 @@ export const appRoutes = {
         store: () => '/purchases', // POST
         show: (id: number | string) => `/purchases/${id}`,
     },
+
+    summary: () => '/summary',
 } as const;
 
 export type AppRoutes = typeof appRoutes;

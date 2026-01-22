@@ -8,6 +8,7 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SummaryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,6 +32,13 @@ Route::middleware('auth')->group(function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
 
+    Route::get('/summary', function () {
+        return Inertia::render('summary/index');
+    })->name('summary.index');
+    
+    Route::get('/reports', function () {
+        return Inertia::render('reports/index');
+    })->name('reports.index');
     // --- Auth Actions ---
     Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
@@ -100,6 +108,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/items/{itemCode}/info', [SalesController::class, 'apiGetItemInfo']);
         Route::get('/items/{itemCode}/stock', [SalesController::class, 'apiGetItemInfo']);    
     
+        // Summary API
+        Route::get('/summary', [SummaryController::class, 'index'])->name('summary.api.index');
+        Route::get('/summary/export', [SummaryController::class, 'export'])->name('summary.api.export');
+        Route::get('/summary/stats', [SummaryController::class, 'getStats'])->name('summary.api.stats');
+        Route::get('/summary/sales-details', [SummaryController::class, 'salesDetails'])->name('summary.api.sales-details');
+        Route::get('/summary/top-items', [SummaryController::class, 'topItems'])->name('summary.api.top-items');
+        Route::get('/summary/sales-trend', [SummaryController::class, 'salesTrend'])->name('summary.api.sales-trend');
+        Route::get('/summary/payment-method-analysis', [SummaryController::class, 'paymentMethodAnalysis'])->name('summary.api.payment-method-analysis');
+        Route::get('/summary/customer-type-analysis', [SummaryController::class, 'customerTypeAnalysis'])->name('summary.api.customer-type-analysis');
+
     });
 
 });
