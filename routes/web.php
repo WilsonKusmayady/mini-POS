@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
     // PENTING: Route khusus seperti 'search' harus DI ATAS 'resource'
     Route::get('/items/search', [ItemController::class, 'search'])->name('items.search');
     Route::put('/items/{item}/restore', [ItemController::class, 'restore'])->name('items.restore');
+    Route::delete('/items/{item}/force', [ItemController::class, 'forceDestroy'])->name('items.force-destroy');
     Route::resource('items', ItemController::class);
 
     // --- 2. Master Data: MEMBERS ---

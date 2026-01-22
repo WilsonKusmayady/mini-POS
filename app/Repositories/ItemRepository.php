@@ -1,6 +1,8 @@
 <?php
 namespace App\Repositories;
 use App\Models\Item;
+use App\Models\PurchaseDetail;
+use App\Models\SalesDetail;
 use App\Repositories\Contracts\ItemRepositoryInterface;
 
 class ItemRepository implements ItemRepositoryInterface {
@@ -86,6 +88,20 @@ class ItemRepository implements ItemRepositoryInterface {
             $item->delete();
         }
         return $item;
+    }
+
+    public function forceDelete($code) {
+        $item = Item::withTrashed()->find($code);
+        if ($item) {
+            return $item->forceDelete();
+        }
+        return false;
+    }
+
+    public function hasTransactions($code): bool {
+        $existsInPurchase = PurchaseDetail::where('item_code', $code)->exists();
+        $existsInSales = SalesDetail::where('item_code', $code)->exists();
+        return $existsInPurchase || $existsInSales;
     }
 
     public function restore($code) {

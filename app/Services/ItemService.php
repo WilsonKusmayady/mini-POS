@@ -46,6 +46,13 @@ class ItemService {
         return $this->itemRepository->destroy($code);
     }
 
+    public function forceDeleteItem($code) {
+        if ($this->itemRepository->hasTransactions($code)) {
+            throw new Exception("Gagal menghapus item karena terdapat transaksi {$code}");
+        }
+        return $this->itemRepository->forceDelete($code);
+    }
+
     public function getItemsPaginated($perPage = 10, $search = null, $sortBy = 'item_name', $sortDirection = 'asc', $withTrashed = false) {
         return $this->itemRepository->getPaginated($perPage, $search, $sortBy, $sortDirection, $withTrashed);
     }

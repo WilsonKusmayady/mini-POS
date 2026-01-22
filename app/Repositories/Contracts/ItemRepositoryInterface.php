@@ -11,6 +11,10 @@ interface ItemRepositoryInterface {
     // Restore Method
     public function restore($code);
     public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc', bool $withTrashed = false);
+
+    // Force Delete Method
+    public function hasTransactions($code): bool;
+    public function forceDelete($code);
     
     public function getLatestItem();
     public function getItemStock(string $itemCode);

@@ -96,6 +96,15 @@ class ItemController extends Controller
         return redirect()->back()->with('success', 'Barang berhasil dinonaktifkan');
     }
 
+    public function forceDestroy($itemCode) {
+        try {
+            $this->itemService->forceDeleteItem($itemCode);
+            return redirect()->back()->with('success', 'Barang berhasil dihapus');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function restore($itemCode) {
         $this->itemService->restoreItem($itemCode);
         return redirect()->back()->with('success', 'Barang berhasil diaktifkan kembali');

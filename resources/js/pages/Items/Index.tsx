@@ -35,10 +35,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download, RefreshCcw } from 'lucide-react';
-import { useState, FormEventHandler } from 'react';
+import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download, RefreshCcw, Archive } from 'lucide-react';
+import { useState, FormEventHandler, useEffect } from 'react';
 import { SharedData } from '@/types';
+import { toast } from 'sonner'; // [IMPORT TOAST]
 
 // --- IMPORT COMPONENTS ---
 import { ViewModal } from '@/components/ui/view-modal'; 
@@ -101,11 +101,23 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     
-    // [MODAL STATE] Pisahkan state Delete dan Restore agar bersih
+    // [MODAL STATE]
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isRestoreOpen, setIsRestoreOpen] = useState(false); // [BARU]
+    const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+    const [isForceDeleteOpen, setIsForceDeleteOpen] = useState(false);
     
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+
+    // --- [BARU] EFFECT UNTUK TOAST NOTIFICATION ---
+    // Ini akan memunculkan alert toast setiap kali backend mengirim pesan success/error
+    useEffect(() => {
+        if (flash.success) {
+            toast.success(flash.success);
+        }
+        if (flash.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     // --- Sort State ---
     const currentSortBy = filters?.sort_by || 'item_name';
@@ -138,13 +150,12 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         );
     };
 
-    // --- [UPDATE] Restore Button Handler (Hanya Buka Modal) ---
+    // --- Restore Handlers ---
     const openRestoreModal = (item: Item) => {
         setSelectedItem(item);
         setIsRestoreOpen(true);
     };
 
-    // --- [BARU] Confirm Restore Action (Eksekusi ke Backend) ---
     const confirmRestore = () => {
         if (!selectedItem) return;
         
@@ -237,6 +248,34 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         });
     };
 
+    const openForceDeleteModal = (item: Item) => {
+        setSelectedItem(item);
+        setIsForceDeleteOpen(true);
+    };
+
+    // --- [FIX] Hard Delete Handler ---
+    const hardForceDelete = () => {
+        if (!selectedItem) return;
+        
+        // Menggunakan Inertia router untuk delete
+        // Karena backend me-return redirect with flash message,
+        // Toast di useEffect akan menangkap pesannya.
+        router.delete(route('items.force-destroy', selectedItem.item_code), {
+            preserveScroll: true, // PENTING: Agar tidak scroll ke atas
+            onSuccess: () => {
+                setIsForceDeleteOpen(false);
+                setSelectedItem(null);
+            },
+            onError: () => {
+                // Jika ada error validasi inertia
+                setIsForceDeleteOpen(false);
+            },
+            onFinish: () => {
+                // Bisa tambahkan logic cleanup jika perlu
+            }
+        });
+    };
+
     const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 
     return (
@@ -244,23 +283,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
             <Head title="Inventory Barang" />
             <div className="flex h-full flex-1 flex-col gap-6 p-6">
                 
-                {/* --- ALERT NOTIFIKASI --- */}
-                {flash.success && (
-                    <Alert className="bg-green-50 border-green-200 text-green-900">
-                        <CheckCircle2Icon className="h-4 w-4 text-green-600" />
-                        <AlertTitle>Berhasil!</AlertTitle>
-                        <AlertDescription>{flash.success}</AlertDescription>
-                    </Alert>
-                )}
-                {flash.error && (
-                    <Alert variant="destructive">
-                        <AlertCircleIcon className="h-4 w-4" />
-                        <AlertTitle>Gagal!</AlertTitle>
-                        <AlertDescription>{flash.error}</AlertDescription>
-                    </Alert>
-                )}
-
-                {/* Header Page */}
+                {/* --- HEADER PAGE --- */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Daftar Barang</h1>
@@ -375,32 +398,28 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                                             
-                                                            {item.deleted_at ? (
-                                                                /* [UPDATE] Panggil openRestoreModal bukan langsung handleRestore */
-                                                                <DropdownMenuItem 
-                                                                    onClick={() => openRestoreModal(item)}
-                                                                    className="text-green-600 focus:text-green-600 focus:bg-green-50"
-                                                                >
-                                                                    <RefreshCcw className="mr-2 h-4 w-4" /> Pulihkan (Restore)
-                                                                </DropdownMenuItem>
-                                                            ) : (
-                                                                <>
-                                                                    <DropdownMenuItem onClick={() => openDetailModal(item)}>
-                                                                        <Eye className="mr-2 h-4 w-4" /> Detail
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => openEditModal(item)}>
-                                                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem 
-                                                                        onClick={() => openDeleteModal(item)}
-                                                                        className="text-red-600 focus:text-red-600"
-                                                                    >
-                                                                        <Trash2 className="mr-2 h-4 w-4" /> Non-aktifkan
-                                                                    </DropdownMenuItem>
-                                                                </>
-                                                            )}
+                                                            <DropdownMenuItem onClick={() => router.visit(route('items.edit', item.item_code))}>
+                                                                <Edit className="mr-2 h-4 w-4" /> Edit
+                                                            </DropdownMenuItem>
                                                             
+                                                            {/* TOMBOL 1: SOFT DELETE (Selalu Muncul) */}
+                                                            {!item.deleted_at && (
+                                                                <DropdownMenuItem 
+                                                                    onClick={() => openDeleteModal(item)}
+                                                                    className="text-orange-600 focus:text-orange-600"
+                                                                >
+                                                                    <Archive className="mr-2 h-4 w-4" /> Non-aktifkan
+                                                                </DropdownMenuItem>
+                                                            )}
+
+                                                            {/* TOMBOL 2: HARD DELETE (Hapus Permanen) */}
+                                                            <DropdownMenuItem 
+                                                                onClick={() => openForceDeleteModal(item)} 
+                                                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus Permanen
+                                                            </DropdownMenuItem>
+
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -455,9 +474,9 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     triggerText=""
                     size="md"
                 >
-                    {/* ... Content View Modal (Sama seperti sebelumnya) ... */}
                     {selectedItem && (
                          <div className="grid gap-4 py-0">
+                            {/* ... Content Detail ... */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Kode</Label>
                                 <div className="col-span-3 text-sm font-bold">{selectedItem.item_code}</div>
@@ -484,7 +503,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     )}
                 </ViewModal>
                 
-                {/* --- MODAL CREATE (Sama seperti sebelumnya) --- */}
+                {/* --- MODAL CREATE --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Tambah Barang</DialogTitle></DialogHeader>
@@ -501,7 +520,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT (Sama seperti sebelumnya) --- */}
+                {/* --- MODAL EDIT --- */}
                 <EditModal open={isEditOpen} onOpenChange={setIsEditOpen} title="Edit Barang" onSubmit={handleEditSubmit} loading={processing} saveLabel="Update">
                     <div className="space-y-2"><Label>Nama Barang</Label><Input value={data.item_name} onChange={(e) => setData('item_name', e.target.value)} required /></div>
                     <div className="space-y-2"><Label>Deskripsi</Label><Input value={data.item_description} onChange={(e) => setData('item_description', e.target.value)} /></div>
@@ -512,7 +531,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     <div className="space-y-2"><Label>Harga Jual</Label><MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required /></div>
                 </EditModal>
 
-                {/* --- MODAL DELETE (INACTIVE) --- */}
+                {/* --- MODAL SOFT DELETE (Non-aktifkan) --- */}
                 <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
@@ -523,23 +542,43 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>Non-aktifkan</AlertDialogAction>
+                            <AlertDialogAction className="bg-orange-600 hover:bg-orange-700" onClick={handleDelete}>Non-aktifkan</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
 
-                {/* --- [BARU] MODAL RESTORE (PULIHKAN) --- */}
+                {/* --- MODAL HARD DELETE (Permanen) --- */}
+                <AlertDialog open={isForceDeleteOpen} onOpenChange={setIsForceDeleteOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="text-red-600">Hapus Permanen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Anda akan menghapus barang <b>{selectedItem?.item_name}</b> secara permanen dari database.
+                                <br /><br />
+                                <span className="font-bold text-red-500">PERINGATAN:</span> Tindakan ini tidak dapat dibatalkan.
+                                Jika barang ini sudah pernah dijual/dibeli, sistem akan menolak penghapusan ini.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={hardForceDelete}>
+                                Hapus Selamanya
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                {/* --- MODAL RESTORE (PULIHKAN) --- */}
                 <AlertDialog open={isRestoreOpen} onOpenChange={setIsRestoreOpen}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="text-green-700">Pulihkan Barang?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Barang <b>{selectedItem?.item_name}</b> akan diaktifkan kembali dan dapat dipilih dalam transaksi penjualan.
+                                Barang <b>{selectedItem?.item_name}</b> akan diaktifkan kembali.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Batal</AlertDialogCancel>
-                            {/* Tombol Restore berwarna Hijau */}
                             <AlertDialogAction className="bg-green-600 hover:bg-green-700 text-white" onClick={confirmRestore}>
                                 Pulihkan
                             </AlertDialogAction>
