@@ -27,7 +27,10 @@ class ItemController extends Controller
         $sortBy = $request->input('sort_by', 'item_name'); 
         $sortDirection = $request->input('sort_direction', 'asc'); 
 
-        $items = $this->itemService->getItemsPaginated(10, $search, $sortBy, $sortDirection);
+        // filter show inactive -> boolean
+        $showInactive = $request->boolean('show_inactive');
+
+        $items = $this->itemService->getItemsPaginated(10, $search, $sortBy, $sortDirection, $showInactive);
         
         $items->appends($request->query());
 
@@ -36,7 +39,8 @@ class ItemController extends Controller
             'filters' => [
                 'search' => $search,
                 'sort_by' => $sortBy,
-                'sort_direction' => $sortDirection
+                'sort_direction' => $sortDirection,
+                'show_inactive' => $showInactive
             ]
         ]);
     }
@@ -89,8 +93,13 @@ class ItemController extends Controller
     public function destroy($itemCode)
     {
         $this->itemService->deleteItem($itemCode);
-        return redirect()->back()->with('success', 'Barang berhasil dihapus');
+        return redirect()->back()->with('success', 'Barang berhasil dinonaktifkan');
     }
+
+    public function restore($itemCode) {
+        $this->itemService->restoreItem($itemCode);
+        return redirect()->back()->with('success', 'Barang berhasil diaktifkan kembali');
+    }   
 
     public function search(Request $request) {
         $search = $request->input('q');

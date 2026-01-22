@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
     // --- 1. Master Data: ITEMS (Inventory) ---
     // PENTING: Route khusus seperti 'search' harus DI ATAS 'resource'
     Route::get('/items/search', [ItemController::class, 'search'])->name('items.search');
+    Route::put('/items/{item}/restore', [ItemController::class, 'restore'])->name('items.restore');
     Route::resource('items', ItemController::class);
 
     // --- 2. Master Data: MEMBERS ---

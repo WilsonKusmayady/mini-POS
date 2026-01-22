@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { 
     Dialog, 
     DialogContent, 
@@ -34,7 +36,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Plus, Trash2, Edit, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2Icon, AlertCircleIcon, MoreHorizontal, ChevronLeft, ChevronRight, Download, RefreshCcw } from 'lucide-react';
 import { useState, FormEventHandler } from 'react';
 import { SharedData } from '@/types';
 
@@ -43,8 +45,6 @@ import { ViewModal } from '@/components/ui/view-modal';
 import { MoneyInput } from '@/components/ui/money-input';
 import { SearchInput } from '@/components/ui/search-input'; 
 import { EditModal } from '@/components/ui/edit-modal';
-
-// --- Interfaces ---
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -64,6 +64,7 @@ interface Item {
     item_price: number;
     item_stock: number;
     item_min_stock: number;
+    deleted_at?: string | null;
 }
 
 interface PaginationLink {
@@ -88,6 +89,7 @@ interface IndexProps {
         search?: string;
         sort_by?: string;
         sort_direction?: string;
+        show_inactive?: boolean;
     };
 }
 
@@ -98,7 +100,11 @@ export default function ItemIndex({ items, filters }: IndexProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    
+    // [MODAL STATE] Pisahkan state Delete dan Restore agar bersih
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isRestoreOpen, setIsRestoreOpen] = useState(false); // [BARU]
+    
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
     // --- Sort State ---
@@ -110,12 +116,45 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         router.get(
             route('items.index'),
             { 
+                ...filters, 
                 search: term,
                 sort_by: currentSortBy,
                 sort_direction: currentSortDir 
             },
             { preserveState: true, preserveScroll: true, replace: true }
         );
+    };
+
+    // --- Show Inactive Handler ---
+    const handleShowInactiveChange = (checked: boolean) => {
+        router.get(
+            route('items.index'),
+            { 
+                ...filters, 
+                show_inactive: checked,
+                page: 1 
+            },
+            { preserveState: true, replace: true }
+        );
+    };
+
+    // --- [UPDATE] Restore Button Handler (Hanya Buka Modal) ---
+    const openRestoreModal = (item: Item) => {
+        setSelectedItem(item);
+        setIsRestoreOpen(true);
+    };
+
+    // --- [BARU] Confirm Restore Action (Eksekusi ke Backend) ---
+    const confirmRestore = () => {
+        if (!selectedItem) return;
+        
+        router.put(route('items.restore', selectedItem.item_code), {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsRestoreOpen(false);
+                setSelectedItem(null);
+            }
+        });
     };
 
     // --- Sort Handler ---
@@ -127,7 +166,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
         router.get(
             route('items.index'),
             { 
-                search: filters?.search,
+                ...filters, 
                 sort_by: field, 
                 sort_direction: direction 
             },
@@ -246,8 +285,20 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 <CardDescription>Menampilkan {items.from} - {items.to} dari {items.total} barang</CardDescription>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
-                                {/* REUSABLE SEARCH COMPONENT */}
+                            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-center">
+                                {/* Toggle Show Inactive Only */}
+                                <div className="flex items-center space-x-2 border px-3 py-2 rounded-md bg-muted/20">
+                                    <Switch 
+                                        id="show-inactive" 
+                                        checked={filters?.show_inactive || false}
+                                        onCheckedChange={handleShowInactiveChange}
+                                    />
+                                    <Label htmlFor="show-inactive" className="cursor-pointer text-sm font-medium">
+                                        {filters?.show_inactive ? 'Show Inactive' : 'Show Inactive'}
+                                    </Label>
+                                </div>
+
+                                {/* Search Component */}
                                 <SearchInput 
                                     value={filters?.search || ''}
                                     onSearch={handleSearch}
@@ -287,13 +338,24 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                         </TableRow>
                                     ) : (
                                         items.data.map((item) => (
-                                            <TableRow key={item.item_code} className="align-top">
+                                            <TableRow 
+                                                key={item.item_code} 
+                                                className={cn("align-top", item.deleted_at && "bg-muted/50 text-muted-foreground")}
+                                            >
                                                 <TableCell className="font-medium py-4">{item.item_code}</TableCell>
                                                 <TableCell className="py-4">
                                                     <div className="flex flex-col">
-                                                        <span className="font-medium">{item.item_name}</span>
-                                                        {item.item_stock <= item.item_min_stock && (
-                                                            <span className="text-[10px] text-red-500 font-bold">Stok Menipis!</span>
+                                                        <span className={cn("font-medium", item.deleted_at && "line-through")}>
+                                                            {item.item_name}
+                                                        </span>
+                                                        {item.deleted_at ? (
+                                                            <Badge variant="destructive" className="w-fit mt-1 text-[10px] px-1 h-5">
+                                                                Inactive
+                                                            </Badge>
+                                                        ) : (
+                                                            item.item_stock <= item.item_min_stock && (
+                                                                <span className="text-[10px] text-red-500 font-bold">Stok Menipis!</span>
+                                                            )
                                                         )}
                                                     </div>
                                                 </TableCell>
@@ -312,19 +374,33 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                            <DropdownMenuItem onClick={() => openDetailModal(item)}>
-                                                                <Eye className="mr-2 h-4 w-4" /> Detail
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => openEditModal(item)}>
-                                                                <Edit className="mr-2 h-4 w-4" /> Edit
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem 
-                                                                onClick={() => openDeleteModal(item)}
-                                                                className="text-red-600 focus:text-red-600"
-                                                            >
-                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus
-                                                            </DropdownMenuItem>
+                                                            
+                                                            {item.deleted_at ? (
+                                                                /* [UPDATE] Panggil openRestoreModal bukan langsung handleRestore */
+                                                                <DropdownMenuItem 
+                                                                    onClick={() => openRestoreModal(item)}
+                                                                    className="text-green-600 focus:text-green-600 focus:bg-green-50"
+                                                                >
+                                                                    <RefreshCcw className="mr-2 h-4 w-4" /> Pulihkan (Restore)
+                                                                </DropdownMenuItem>
+                                                            ) : (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => openDetailModal(item)}>
+                                                                        <Eye className="mr-2 h-4 w-4" /> Detail
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => openEditModal(item)}>
+                                                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => openDeleteModal(item)}
+                                                                        className="text-red-600 focus:text-red-600"
+                                                                    >
+                                                                        <Trash2 className="mr-2 h-4 w-4" /> Non-aktifkan
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                            
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -335,7 +411,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                             </Table>
                         </div>
 
-                        {/* Pagination Footer */}
+                        {/* Pagination */}
                         {items.last_page > 1 && (
                             <div className="flex items-center justify-between mt-6">
                                 <div className="text-sm text-muted-foreground">
@@ -343,50 +419,23 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {items.links.map((link, index) => {
-                                        // Render special characters properly
                                         const label = link.label.replace('&laquo;', '').replace('&raquo;', '').trim();
-                                        
-                                        // Previous / Next Buttons (Handling Labels)
                                         if (link.label.includes('Previous')) {
                                             return (
-                                                <Link
-                                                    key={index}
-                                                    href={link.url || '#'}
-                                                    preserveScroll
-                                                    preserveState
-                                                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
-                                                >
+                                                <Link key={index} href={link.url || '#'} preserveScroll preserveState className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}>
                                                     <ChevronLeft className="h-4 w-4" />
                                                 </Link>
                                             );
                                         }
                                         if (link.label.includes('Next')) {
                                             return (
-                                                <Link
-                                                    key={index}
-                                                    href={link.url || '#'}
-                                                    preserveScroll
-                                                    preserveState
-                                                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
-                                                >
+                                                <Link key={index} href={link.url || '#'} preserveScroll preserveState className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 w-8 ${!link.url ? 'pointer-events-none opacity-50' : ''}`}>
                                                     <ChevronRight className="h-4 w-4" />
                                                 </Link>
                                             );
                                         }
-
-                                        // Number Buttons
                                         return (
-                                            <Link
-                                                key={index}
-                                                href={link.url || '#'}
-                                                preserveScroll
-                                                preserveState
-                                                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input shadow-sm h-8 w-8 ${
-                                                    link.active 
-                                                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                                                    : "bg-background hover:bg-accent hover:text-accent-foreground"
-                                                }`}
-                                            >
+                                            <Link key={index} href={link.url || '#'} preserveScroll preserveState className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input shadow-sm h-8 w-8 ${link.active ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-background hover:bg-accent hover:text-accent-foreground"}`}>
                                                 {label}
                                             </Link>
                                         );
@@ -406,52 +455,36 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                     triggerText=""
                     size="md"
                 >
-                    {/* ... Content View Modal ... */}
-                    {selectedItem ? (
+                    {/* ... Content View Modal (Sama seperti sebelumnya) ... */}
+                    {selectedItem && (
                          <div className="grid gap-4 py-0">
-                            {/* Kode Barang */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Kode</Label>
                                 <div className="col-span-3 text-sm font-bold">{selectedItem.item_code}</div>
                             </div>
-                            
-                            {/* Nama Barang */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Nama</Label>
                                 <div className="col-span-3 text-sm font-medium">{selectedItem.item_name}</div>
                             </div>
-
-                            {/* Deskripsi */}
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground mt-1">Deskripsi</Label>
                                 <div className="col-span-3 text-sm">{selectedItem.item_description || '-'}</div>
                             </div>
-
-                            {/* Stok */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Stok</Label>
                                 <div className="col-span-3">
-                                    <Badge variant={selectedItem.item_stock > selectedItem.item_min_stock ? "outline" : "destructive"}>
-                                        {selectedItem.item_stock} Unit
-                                    </Badge>
-                                    {selectedItem.item_stock <= selectedItem.item_min_stock && (
-                                        <p className="text-[10px] text-red-500 mt-1">* Stok di bawah batas minimum ({selectedItem.item_min_stock})</p>
-                                    )}
+                                    <Badge variant={selectedItem.item_stock > selectedItem.item_min_stock ? "outline" : "destructive"}>{selectedItem.item_stock} Unit</Badge>
                                 </div>
                             </div>
-
-                            {/* Harga Jual */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-semibold text-muted-foreground">Harga Jual</Label>
                                 <div className="col-span-3 text-sm font-bold text-primary">{formatRupiah(Number(selectedItem.item_price))}</div>
                             </div>
                         </div>
-                    ) : (
-                        <div className="text-center text-muted-foreground">Tidak ada data dipilih</div>
                     )}
                 </ViewModal>
                 
-                {/* --- MODAL CREATE --- */}
+                {/* --- MODAL CREATE (Sama seperti sebelumnya) --- */}
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Tambah Barang</DialogTitle></DialogHeader>
@@ -462,49 +495,54 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                 <div className="space-y-2"><Label>Stok Awal</Label><Input type="number" value={data.item_stock} onChange={(e) => setData('item_stock', parseInt(e.target.value))} required /></div>
                                 <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                             </div>
-                            <div className="space-y-2"><Label>Harga Jual</Label>
-                                <MoneyInput
-                                    placeholder="Rp 0"
-                                    value={data.item_price}
-                                    onValueChange={(values) => setData('item_price', values.floatValue || 0)}
-                                    required
-                                />
-                            </div>
+                            <div className="space-y-2"><Label>Harga Jual</Label><MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required /></div>
                             <DialogFooter className="mt-4"><Button type="submit" disabled={processing}>Simpan</Button></DialogFooter>
                         </form>
                     </DialogContent>
                 </Dialog>
 
-                {/* --- MODAL EDIT --- */}
-                <EditModal
-                    open={isEditOpen}
-                    onOpenChange={setIsEditOpen}
-                    title="Edit Barang"
-                    onSubmit={handleEditSubmit}
-                    loading={processing}
-                    saveLabel="Update"
-                >
+                {/* --- MODAL EDIT (Sama seperti sebelumnya) --- */}
+                <EditModal open={isEditOpen} onOpenChange={setIsEditOpen} title="Edit Barang" onSubmit={handleEditSubmit} loading={processing} saveLabel="Update">
                     <div className="space-y-2"><Label>Nama Barang</Label><Input value={data.item_name} onChange={(e) => setData('item_name', e.target.value)} required /></div>
                     <div className="space-y-2"><Label>Deskripsi</Label><Input value={data.item_description} onChange={(e) => setData('item_description', e.target.value)} /></div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2"><Label>Stok</Label><Input type="number" value={data.item_stock} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" /></div>
                         <div className="space-y-2"><Label>Min. Stok</Label><Input type="number" value={data.item_min_stock} onChange={(e) => setData('item_min_stock', parseInt(e.target.value))} required /></div>
                     </div>
-                    <div className="space-y-2"><Label>Harga Jual</Label>
-                        <MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required />
-                    </div>
+                    <div className="space-y-2"><Label>Harga Jual</Label><MoneyInput placeholder="Rp 0" value={data.item_price} onValueChange={(values) => setData('item_price', values.floatValue || 0)} required /></div>
                 </EditModal>
 
-                {/* --- MODAL DELETE --- */}
+                {/* --- MODAL DELETE (INACTIVE) --- */}
                 <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Hapus Barang?</AlertDialogTitle>
-                            <AlertDialogDescription>Barang <b>{selectedItem?.item_name}</b> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
+                            <AlertDialogTitle>Non-aktifkan Barang?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Barang <b>{selectedItem?.item_name}</b> akan dinonaktifkan (Inactive) dan tidak akan muncul di penjualan.
+                            </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>Hapus</AlertDialogAction>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>Non-aktifkan</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                {/* --- [BARU] MODAL RESTORE (PULIHKAN) --- */}
+                <AlertDialog open={isRestoreOpen} onOpenChange={setIsRestoreOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="text-green-700">Pulihkan Barang?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Barang <b>{selectedItem?.item_name}</b> akan diaktifkan kembali dan dapat dipilih dalam transaksi penjualan.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            {/* Tombol Restore berwarna Hijau */}
+                            <AlertDialogAction className="bg-green-600 hover:bg-green-700 text-white" onClick={confirmRestore}>
+                                Pulihkan
+                            </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>

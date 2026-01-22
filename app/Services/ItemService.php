@@ -46,8 +46,12 @@ class ItemService {
         return $this->itemRepository->destroy($code);
     }
 
-    public function getItemsPaginated($perPage = 10, $search = null, $sortBy = 'item_name', $sortDirection = 'asc') {
-        return $this->itemRepository->getPaginated($perPage, $search, $sortBy, $sortDirection);
+    public function getItemsPaginated($perPage = 10, $search = null, $sortBy = 'item_name', $sortDirection = 'asc', $withTrashed = false) {
+        return $this->itemRepository->getPaginated($perPage, $search, $sortBy, $sortDirection, $withTrashed);
+    }
+
+    public function restoreItem($code) {
+        return $this->itemRepository->restore($code);
     }
 
     public function getItemsForDropdown($page = 1, $search = '') {

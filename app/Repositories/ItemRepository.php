@@ -39,8 +39,13 @@ class ItemRepository implements ItemRepositoryInterface {
     // }
 
     // Method Flexible: Bisa untuk Pagination biasa ATAU Pencarian
-    public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc') {
+    public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc', bool $withTrashed = false) {
         $query = Item::query();
+
+        // Logic Show Items if true menampilkan item yang sudah dihapus (soft delete)
+        if ($withTrashed) {
+            $query->onlyTrashed();
+        }
 
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -79,6 +84,15 @@ class ItemRepository implements ItemRepositoryInterface {
         $item = $this->findByCode($code);
         if($item) {
             $item->delete();
+        }
+        return $item;
+    }
+
+    public function restore($code) {
+        $item = Item::withTrashed()->where('item_code', $code)->first();
+        
+        if($item) {
+            $item->restore();
         }
         return $item;
     }

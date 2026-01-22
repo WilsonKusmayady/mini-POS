@@ -7,8 +7,12 @@ interface ItemRepositoryInterface {
     public function store(array $data);
     public function update($code, array $data);
     public function destroy($code);
+
+    // Restore Method
+    public function restore($code);
+    public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc', bool $withTrashed = false);
+    
     public function getLatestItem();
-    public function getPaginated(int $perPage, string $search = null, string $sortBy = 'item_name', string $sortDirection = 'asc');
     public function getItemStock(string $itemCode);
     public function decreaseStock(string $itemCode, int $quantity);
     public function increaseStock(string $itemCode, int $quantity);
