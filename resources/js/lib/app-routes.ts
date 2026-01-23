@@ -60,6 +60,8 @@ export const appRoutes = {
         update: (id: string | number) => `/purchases/${id}`,
         destroy: (id: string | number) => `/purchases/${id}`,
     },
+
+    summary: () => '/summary',
 } as const;
 
 export type AppRoutes = typeof appRoutes;

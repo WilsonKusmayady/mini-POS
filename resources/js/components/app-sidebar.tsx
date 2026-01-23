@@ -75,7 +75,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     icon: BarChart3,
                 },
                 {
-                    title: 'Laporan',
+                    title: 'Report',
                     href: '/reports',
                     icon: ClipboardList,
                 },
