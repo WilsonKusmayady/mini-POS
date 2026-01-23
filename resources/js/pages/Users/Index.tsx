@@ -1,5 +1,5 @@
-import React, { useState, FormEventHandler } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, useForm, router } from '@inertiajs/react'; // router kita butuhkan untuk manual request
 import { PageProps, User } from '@/types';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
@@ -20,16 +20,13 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+    DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Pencil, Trash2, Plus, Shield, User as UserIcon, MoreHorizontal } from 'lucide-react';
 import { toast } from "sonner";
 import { EditModal } from '@/components/ui/edit-modal';
+import { FormSchema } from '@/types/form-schema'; // Import tipe schema
 
 interface UsersIndexProps extends PageProps {
     users: User[];
@@ -44,14 +41,71 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
     // State Selected Data
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    
+    const [editModalData, setEditModalData] = useState<Record<string, any> | null>(null);
 
-    // Form Inertia
-    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
+    // Form Inertia (Hanya untuk Create, Edit pakai Schema)
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         user_name: '',
         user_role: '0', 
         password: '',
         password_confirmation: '',
     });
+
+    // --- DEFINISI SCHEMA FORM (Kunci agar EditModal Asli bekerja) ---
+    const userEditSchema: FormSchema<any> = {
+        fields: [
+            {
+                name: 'user_name',
+                label: 'Username',
+                type: 'text',
+                required: true,
+            },
+            {
+                name: 'user_role',
+                label: 'Role',
+                type: 'select',
+                required: true,
+                options: [
+                    { label: 'Staff (Kasir)', value: '0' },
+                    { label: 'Admin', value: '1' },
+                ],
+            },
+
+            {
+                name: 'password',
+                label: 'Password Baru (Opsional)',
+                type: 'custom', 
+                render: (value, onChange) => (
+                    <div className="space-y-2">
+                        <Label>Password Baru (Opsional)</Label>
+                        <Input 
+                            type="password" 
+                            value={value || ''} 
+                            onChange={e => onChange(e.target.value)} 
+                            placeholder="Isi untuk mengganti password"
+                        />
+                    </div>
+                )
+            },
+            {
+                name: 'password_confirmation',
+                label: 'Konfirmasi Password',
+                type: 'custom',
+                render: (value, onChange) => (
+                    <div className="space-y-2">
+                        <Label>Konfirmasi Password</Label>
+                        <Input 
+                            type="password" 
+                            value={value || ''} 
+                            onChange={e => onChange(e.target.value)} 
+                            placeholder="Ulangi password baru"
+                        />
+                    </div>
+                )
+            }
+        ]
+    };
 
     // --- HANDLERS ---
 
@@ -63,13 +117,15 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
 
     const openEditDialog = (user: User) => {
         setEditingUser(user);
-        setData({
-            user_name: user.user_name,
-            user_role: user.user_role ? '1' : '0', // Konversi boolean ke string select
+        
+        // Persiapkan data agar sesuai schema
+        setEditModalData({
+            ...user,
+            user_role: user.user_role ? '1' : '0', 
             password: '', 
-            password_confirmation: '',
+            password_confirmation: ''
         });
-        clearErrors();
+        
         setIsEditOpen(true);
     };
 
@@ -78,8 +134,8 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
         setIsDeleteDialogOpen(true);
     };
 
-    // Handle Create
-    const handleCreateSubmit: FormEventHandler = (e) => {
+    // Handle Create 
+    const handleCreateSubmit: React.FormEventHandler = (e) => {
         e.preventDefault();
         post(route('users.store'), {
             onSuccess: () => {
@@ -90,18 +146,28 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
         });
     };
 
-    // Handle Edit
-    const handleEditSubmit: FormEventHandler = (e) => {
-        e.preventDefault();
+    // Menerima data JSON, bukan Event
+    const handleEditSubmit = async (formData: any) => {
         if (!editingUser) return;
 
-        put(route('users.update', editingUser.user_id), {
-            onSuccess: () => {
-                setIsEditOpen(false);
-                setEditingUser(null);
-                reset();
-                toast.success("User berhasil diperbarui"); 
-            }
+        return new Promise<void>((resolve, reject) => {
+            router.put(route('users.update', editingUser.user_id), formData, {
+                onSuccess: () => {
+                    setEditingUser(null);
+                    setEditModalData(null);
+                    toast.success("User berhasil diperbarui");
+                    resolve(); 
+                },
+                onError: (errors) => {
+                    reject({
+                        response: {
+                            data: {
+                                errors: errors 
+                            }
+                        }
+                    });
+                }
+            });
         });
     };
 
@@ -167,7 +233,6 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
                                                     <Pencil className="mr-2 h-4 w-4" /> Edit
                                                 </DropdownMenuItem>
                                                 
-                                                {/* Cek agar user tidak menghapus dirinya sendiri */}
                                                 {auth.user.user_id !== user.user_id && (
                                                     <>
                                                         <DropdownMenuSeparator />
@@ -189,7 +254,7 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
                 </div>
             </div>
 
-            {/* --- MODAL CREATE (Manual Dialog) --- */}
+            {/* --- MODAL CREATE --- */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -247,58 +312,17 @@ export default function UsersIndex({ auth, users }: UsersIndexProps) {
                 </DialogContent>
             </Dialog>
 
-            {/* --- MODAL EDIT (Menggunakan Reusable EditModal) --- */}
+            {/* --- MODAL EDIT (Disini perubahannya) --- */}
+            {/* Kita tidak lagi menggunakan children, tapi menggunakan props 'schema' dan 'data' */}
             <EditModal
-                open={isEditOpen}
-                onOpenChange={setIsEditOpen}
+                isOpen={isEditOpen}           // Gunakan props asli: isOpen
+                onClose={() => setIsEditOpen(false)} // Gunakan props asli: onClose
                 title="Edit User"
-                onSubmit={handleEditSubmit}
-                loading={processing}
-                saveLabel="Update User"
-            >
-                <div className="space-y-2">
-                    <Label>Username</Label>
-                    <Input 
-                        value={data.user_name} 
-                        onChange={e => setData('user_name', e.target.value)} 
-                        required
-                    />
-                    {errors.user_name && <p className="text-red-500 text-sm">{errors.user_name}</p>}
-                </div>
-
-                <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Select value={data.user_role} onValueChange={val => setData('user_role', val)}>
-                        <SelectTrigger><SelectValue placeholder="Pilih Role" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="0">Staff (Kasir)</SelectItem>
-                            <SelectItem value="1">Admin</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    {errors.user_role && <p className="text-red-500 text-sm">{errors.user_role}</p>}
-                </div>
-
-                <div className="space-y-2">
-                    <Label>Password (Opsional)</Label>
-                    <Input 
-                        type="password" 
-                        value={data.password} 
-                        onChange={e => setData('password', e.target.value)} 
-                        placeholder="Isi jika ingin mengganti password"
-                    />
-                    {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
-                </div>
-
-                <div className="space-y-2">
-                    <Label>Konfirmasi Password</Label>
-                    <Input 
-                        type="password" 
-                        value={data.password_confirmation} 
-                        onChange={e => setData('password_confirmation', e.target.value)} 
-                        placeholder="Ulangi password baru"
-                    />
-                </div>
-            </EditModal>
+                data={editModalData}          // Pass data 
+                schema={userEditSchema}       // Pass schema 
+                onSubmit={handleEditSubmit}   // Handler yang mengembalikan Promise
+                isLoading={false}             // Inertia loading ditangani di dalam Promise wrapper, tapi bisa juga pass state processing jika mau
+            />
 
             {/* --- MODAL DELETE --- */}
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
