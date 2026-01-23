@@ -19,6 +19,8 @@ use App\Repositories\Contracts\DashboardRepositoryInterface;
 use App\Repositories\DashboardRepository;
 use App\Repositories\Contracts\SummaryRepositoryInterface;
 use App\Repositories\SummaryRepository;
+use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Repositories\ReportRepository;
 use Carbon\Carbon;
 
 
@@ -56,6 +58,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SummaryRepositoryInterface::class,
             SummaryRepository::class
+        );
+        $this->app->bind(
+            ReportRepositoryInterface::class,
+            ReportRepository::class
         );
     }
 

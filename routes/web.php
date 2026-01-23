@@ -9,6 +9,7 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SummaryController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -117,6 +118,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/summary/sales-trend', [SummaryController::class, 'salesTrend'])->name('summary.api.sales-trend');
         Route::get('/summary/payment-method-analysis', [SummaryController::class, 'paymentMethodAnalysis'])->name('summary.api.payment-method-analysis');
         Route::get('/summary/customer-type-analysis', [SummaryController::class, 'customerTypeAnalysis'])->name('summary.api.customer-type-analysis');
+
+        // Reports API
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.api.index');
+        Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.api.export');
 
     });
 

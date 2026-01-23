@@ -1,3 +1,5 @@
+import { report } from "process";
+
 // Custom route helpers yang sesuai dengan web.php Anda
 export const appRoutes = {
     // Dashboard
@@ -51,6 +53,7 @@ export const appRoutes = {
         },
     },
 
+    reports: () => '/reports',
     purchases: {
         index: () => '/purchases',
         create: () => '/purchases/create',
