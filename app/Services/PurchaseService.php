@@ -141,7 +141,48 @@ class PurchaseService
         return $this->purchaseRepository->destroy($invoiceNumber);
     }
 
-    public function getExportData(array $filters) {
-        return $this->purchaseRepository->getForExport($filters);
+public function getExportData(array $filters) 
+    {
+        // Ambil data raw dari repository
+        $purchases = $this->purchaseRepository->getForExport($filters);
+        
+        $formattedData = [];
+        
+        foreach ($purchases as $purchase) {
+            $formattedData[] = $this->formatPurchaseForExport($purchase);
+        }
+        
+        return $formattedData;
+    }
+
+    // [NEW] Helper untuk format data export (Private)
+    private function formatPurchaseForExport($purchase): array
+    {
+        // Format items menjadi string atau array structure sesuai kebutuhan Excel
+        $items = $purchase->details->map(function ($detail) {
+            return [
+                'item_code' => $detail->item_code,
+                'item_name' => $detail->item->item_name ?? 'Unknown',
+                'quantity' => $detail->quantity,
+                'price' => number_format($detail->buy_price, 0, ',', '.'),
+                'total' => number_format($detail->total_item_price, 0, ',', '.'),
+            ];
+        });
+
+        return [
+            'invoice_number' => $purchase->purchase_invoice_number,
+            'date' => Carbon::parse($purchase->purchase_date)->format('d/m/Y'),
+            'supplier_name' => $purchase->supplier->supplier_name ?? 'Unknown',
+            'user_name' => $purchase->user->name ?? 'Unknown', // Sesuaikan field name di User model
+            'status' => ucfirst($purchase->purchase_status),
+            'items_count' => $purchase->details->count(),
+            'subtotal' => number_format($purchase->purchase_subtotal, 0, ',', '.'),
+            'grand_total' => number_format($purchase->purchase_grand_total, 0, ',', '.'),
+            'items' => $items->toArray(),
+        ];
+    }
+
+    public function getStatistics(array $filters = []): array {
+        return $this->purchaseRepository->getPurchaseStatistics($filters);
     }
 }

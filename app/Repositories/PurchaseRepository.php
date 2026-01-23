@@ -202,4 +202,37 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         }
         return false;
     }
+
+    public function getPurchaseStatistics(array $filters = []): array {
+        $query = Purchase::query();
+        // Logic Filter start date
+        if (!empty($filters['start_date'])) {
+            $query->whereDate('purchase_date', '>=', $filters['start_date']);
+        }
+
+        // Logic Filter end date
+        if (!empty($filters['end_date'])) {
+            $query->whereDate('purchase_date', '<=', $filters['end_date']);
+        }
+
+        // Logic Filter supplier jika ada
+        if (!empty($filters['supplier_id'])) {
+            $query->where('supplier_id', $filters['supplier_id']);
+        }
+
+        // Logic Active/Inactive
+        if (!empty($filters['show_inactive']) && $filters['show_inactive'] == true) {
+             $query->onlyTrashed();
+        }
+
+        $totalPurchases = $query->count();
+        $totalExpenditure = $query->sum('purchase_grand_total');
+        $averageTransaction = $totalPurchases > 0 ? $totalExpenditure / $totalPurchases : 0;
+
+        return [
+            'total_purchases' => $totalPurchases,
+            'total_expenditure' => (float) $totalExpenditure,
+            'average_transaction' => (float) $averageTransaction,
+        ];
+    }
 }

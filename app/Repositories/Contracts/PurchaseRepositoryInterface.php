@@ -15,4 +15,6 @@ interface PurchaseRepositoryInterface {
 
     public function getForExport(array $filters = []);
     public function update($id, array $data);
+
+    public function getPurchaseStatistics(array $filters = []): array;
 }

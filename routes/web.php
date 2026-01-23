@@ -93,6 +93,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/{invoiceCode}/edit', [SalesController::class, 'edit'])->name('sales.edit');    
     });
 
+    Route::prefix('reports')->name('reports.')->group(function () {
+    // Index laporan umum (opsional jika sudah ada)
+    Route::get('/', function () { return Inertia::render('reports/index'); })->name('index');
+    
+    // Laporan Pembelian
+    Route::get('/purchase', [App\Http\Controllers\ReportController::class, 'purchaseReport'])->name('purchase');
+    Route::get('/purchase/export', [App\Http\Controllers\ReportController::class, 'exportPurchase'])->name('purchase.export');
+    
+    // Jika nanti mau memindahkan laporan sales ke sini juga:
+    // Route::get('/sales', [ReportController::class, 'salesReport'])->name('sales');
+});
+
     // --- INTERNAL API ROUTES (AJAX Helper) ---
     Route::prefix('api')->group(function () {
         // Dashboard API

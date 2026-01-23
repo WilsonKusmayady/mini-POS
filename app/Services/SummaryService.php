@@ -24,8 +24,9 @@ class SummaryService
     public function getSummaryData(array $params): array
     {
         $type = $params['type'] ?? 'all';
-        $startDate = Carbon::parse($params['start_date'])->startOfDay();
-        $endDate = Carbon::parse($params['end_date'])->endOfDay();
+        // Pastikan tanggal valid
+        $startDate = isset($params['start_date']) ? Carbon::parse($params['start_date'])->startOfDay() : Carbon::now()->startOfDay();
+        $endDate = isset($params['end_date']) ? Carbon::parse($params['end_date'])->endOfDay() : Carbon::now()->endOfDay();
 
         if ($type === 'all' || $type === 'sales') {
             $salesSummary = $this->summaryRepository->getSalesSummary($startDate, $endDate);
@@ -41,12 +42,15 @@ class SummaryService
 
         // Combine data for all transaction types
         if ($type === 'all') {
+            // Gabungkan Sales & Purchase untuk tampilan utama (Net Profit/Cashflow)
             $summaryData = $this->combineTransactionData($salesSummary, $purchaseSummary);
+            // Siapkan data perbandingan untuk Excel Sheet ke-2
             $transactionSummary = $this->getTransactionTypeSummary($salesSummary, $purchaseSummary);
         } elseif ($type === 'sales') {
             $summaryData = $salesSummary;
             $transactionSummary = collect();
         } else {
+            // Jika hanya filter Purchase
             $summaryData = $purchaseSummary;
             $transactionSummary = collect();
         }
@@ -56,6 +60,78 @@ class SummaryService
             'transaction_summary' => $transactionSummary
         ];
     }
+
+    /**
+     * [NEW] Helper: Combine Sales and Purchase data by date
+     * Digunakan untuk list Summary utama ketika filter = 'all'
+     */
+    private function combineTransactionData($sales, $purchases)
+    {
+        // Ambil semua tanggal unik dari kedua collection
+        $dates = $sales->pluck('date')
+            ->merge($purchases->pluck('date'))
+            ->unique()
+            ->sortDesc() // Urutkan terbaru
+            ->values();
+
+        return $dates->map(function ($date) use ($sales, $purchases) {
+            $saleData = $sales->firstWhere('date', $date);
+            $purchaseData = $purchases->firstWhere('date', $date);
+
+            // Default nilai jika data tidak ada di tanggal tersebut
+            $salesTotal = $saleData['total_transactions'] ?? 0;
+            $purchaseTotal = $purchaseData['total_transactions'] ?? 0;
+            
+            $salesCount = $saleData['transaction_count'] ?? 0;
+            $purchaseCount = $purchaseData['transaction_count'] ?? 0;
+
+            // Hitung Net (Pendapatan - Pengeluaran)
+            $netTotal = $salesTotal - $purchaseTotal;
+            $totalCount = $salesCount + $purchaseCount;
+
+            return [
+                'date' => $date,
+                'transaction_count' => $totalCount,
+                'total_transactions' => $netTotal, // Total Uang (Net)
+                'total_discount' => $saleData['total_discount'] ?? 0,
+                'items_sold' => $saleData['items_sold'] ?? 0, // Hanya item terjual (sales)
+                'average_transaction' => $totalCount > 0 ? $netTotal / $totalCount : 0,
+                
+                // Tambahan info agar frontend tau detailnya (opsional)
+                'sales_nominal' => $salesTotal,
+                'purchase_nominal' => $purchaseTotal
+            ];
+        });
+    }
+
+    /**
+     * [NEW] Helper: Create side-by-side comparison data
+     * Digunakan untuk sheet "Purchase vs Sales" di Excel
+     */
+    private function getTransactionTypeSummary($sales, $purchases)
+    {
+        $dates = $sales->pluck('date')
+            ->merge($purchases->pluck('date'))
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        return $dates->map(function ($date) use ($sales, $purchases) {
+            $saleData = $sales->firstWhere('date', $date);
+            $purchaseData = $purchases->firstWhere('date', $date);
+
+            return [
+                'date' => $date,
+                'sales_count' => $saleData['transaction_count'] ?? 0,
+                'sales_total' => $saleData['total_transactions'] ?? 0,
+                'purchase_count' => $purchaseData['transaction_count'] ?? 0,
+                'purchase_total' => $purchaseData['total_transactions'] ?? 0,
+                'total_discount' => $saleData['total_discount'] ?? 0,
+            ];
+        });
+    }
+
+    // ... Method lainnya (getSalesDetails, getTopItems, dll) tetap sama ...
 
     public function getSalesDetails(Carbon $date): array
     {
@@ -74,9 +150,6 @@ class SummaryService
         ];
     }
 
-    /**
-     * Get top selling items
-     */
     public function getTopItems(array $params): array
     {
         $startDate = Carbon::parse($params['start_date'])->startOfDay();
@@ -84,10 +157,8 @@ class SummaryService
         $limit = $params['limit'] ?? 10;
         
         $items = $this->summaryRepository->getTopSellingItems($startDate, $endDate, $limit);
-        
         $totalRevenue = $items->sum('total_revenue');
         
-        // Hitung persentase
         $items = $items->map(function ($item) use ($totalRevenue) {
             $item['percentage'] = $totalRevenue > 0 ? ($item['total_revenue'] / $totalRevenue * 100) : 0;
             return $item;
@@ -100,9 +171,6 @@ class SummaryService
         ];
     }
 
-    /**
-     * Get sales trend
-     */
     public function getSalesTrend(array $params): array
     {
         $startDate = Carbon::parse($params['start_date'])->startOfDay();
@@ -121,9 +189,6 @@ class SummaryService
         ];
     }
 
-    /**
-     * Get payment method analysis
-     */
     public function getPaymentMethodAnalysis(array $params): array
     {
         $startDate = Carbon::parse($params['start_date'])->startOfDay();
@@ -134,7 +199,6 @@ class SummaryService
         $totalTransactions = $distribution->sum('transaction_count');
         $totalAmount = $distribution->sum('total_amount');
         
-        // Hitung persentase
         $distribution = $distribution->map(function ($item) use ($totalTransactions, $totalAmount) {
             $item['transaction_percentage'] = $totalTransactions > 0 
                 ? ($item['transaction_count'] / $totalTransactions * 100) 
@@ -152,9 +216,6 @@ class SummaryService
         ];
     }
 
-    /**
-     * Get customer type analysis
-     */
     public function getCustomerTypeAnalysis(array $params): array
     {
         $startDate = Carbon::parse($params['start_date'])->startOfDay();
@@ -165,7 +226,6 @@ class SummaryService
         $totalTransactions = $distribution->sum('transaction_count');
         $totalAmount = $distribution->sum('total_amount');
         
-        // Hitung persentase
         $distribution = $distribution->map(function ($item) use ($totalTransactions, $totalAmount) {
             $item['transaction_percentage'] = $totalTransactions > 0 
                 ? ($item['transaction_count'] / $totalTransactions * 100) 
@@ -183,33 +243,22 @@ class SummaryService
         ];
     }
 
-    /**
-     * Export summary to Excel
-     */
     public function exportSummary(array $params)
     {
         try {
             $data = $this->getSummaryData($params);
-
             $fileName = 'summary_' . $params['start_date'] . '_to_' . $params['end_date'] . '.xlsx';
 
             return Excel::download(
                 new SummaryExport($data, $params),
                 $fileName,
             );
-            
         } catch (\Exception $e) {
-            \Log::error('Error in exportSummary: ' . $e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString(),
-            ]);
+            \Log::error('Error in exportSummary: ' . $e->getMessage());
             throw $e;
         }
     }
 
-    /**
-     * Get summary statistics
-     */
     public function getSummaryStats(string $period): array
     {
         $today = Carbon::now();

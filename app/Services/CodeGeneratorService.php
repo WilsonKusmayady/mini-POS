@@ -14,7 +14,7 @@ class CodeGeneratorService
     {
         $prefix = 'M' . date('y') . date('m');
 
-        $latest = Member::withTrashed()->where('member_code', 'like', $prefix . '%')
+        $latest = Member::where('member_code', 'like', $prefix . '%')
             ->orderBy('member_code', 'desc')
             ->first();
 
@@ -40,7 +40,7 @@ class CodeGeneratorService
     {
         $prefix = 'INV-S' . date('y') . date('m');
         
-        $latest = Sales::withTrashed()->where('sales_invoice_code', 'like', $prefix . '%')
+        $latest = Sales::where('sales_invoice_code', 'like', $prefix . '%')
             ->orderBy('sales_invoice_code', 'desc')
             ->first();
 

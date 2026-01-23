@@ -6,8 +6,6 @@ use App\Repositories\Contracts\SummaryRepositoryInterface;
 use App\Models\Sales;
 use App\Models\Purchase;
 use App\Models\SalesDetail;
-use App\Models\Item;
-use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -19,7 +17,7 @@ class SummaryRepository implements SummaryRepositoryInterface
     public function getSalesSummary(Carbon $startDate, Carbon $endDate): Collection
     {
         return Sales::whereBetween('sales_date', [$startDate, $endDate])
-            ->where('sales_status', true)
+            ->where('sales_status', true) // Sales menggunakan status 1/0 (boolean/int)
             ->join('sales_details', 'sales.sales_invoice_code', '=', 'sales_details.sales_invoice_code')
             ->selectRaw('
                 DATE(sales.sales_date) as date,
@@ -50,21 +48,25 @@ class SummaryRepository implements SummaryRepositoryInterface
      */
     public function getPurchaseSummary(Carbon $startDate, Carbon $endDate): Collection
     {
+        // PERBAIKAN: purchase_status menggunakan string 'paid' bukan boolean true
+        // PERBAIKAN: Kolom purchase_total diubah menjadi purchase_grand_total
         return Purchase::whereBetween('purchase_date', [$startDate, $endDate])
-            ->where('purchase_status', true)
+            ->where('purchase_status', 'paid') 
             ->selectRaw('
                 DATE(purchase_date) as date,
                 COUNT(*) as transaction_count,
-                SUM(purchase_total) as total_transactions,
+                SUM(purchase_grand_total) as total_transactions,
                 0 as total_discount,
-                AVG(purchase_total) as average_transaction
+                AVG(purchase_grand_total) as average_transaction
             ')
-            ->with(['sales_details' => function ($query) {
+            // PERBAIKAN: Nama relasi di model Purchase adalah 'details', bukan 'sales_details'
+            ->with(['details' => function ($query) {
+                // PERBAIKAN: Group by menggunakan purchase_invoice_number
                 $query->selectRaw('
-                    purchase_invoice_code,
-                    SUM(purchase_quantity) as total_items
+                    purchase_invoice_number,
+                    SUM(quantity) as total_items
                 ')
-                ->groupBy('purchase_invoice_code');
+                ->groupBy('purchase_invoice_number');
             }])
             ->groupByRaw('DATE(purchase_date)')
             ->orderBy('date', 'desc')
@@ -76,7 +78,8 @@ class SummaryRepository implements SummaryRepositoryInterface
                     'total_transactions' => (float) $purchase->total_transactions,
                     'total_discount' => (float) $purchase->total_discount,
                     'average_transaction' => (float) $purchase->average_transaction,
-                    'items_sold' => (int) ($purchase->sales_details->first()->total_items ?? 0),
+                    // PERBAIKAN: Mengambil data dari relasi 'details'
+                    'items_sold' => (int) ($purchase->details->first()->total_items ?? 0),
                 ];
             });
     }
@@ -115,14 +118,15 @@ class SummaryRepository implements SummaryRepositoryInterface
      */
     public function getPurchaseStats(Carbon $startDate, Carbon $endDate): array
     {
+        // PERBAIKAN: Sesuaikan nama kolom dengan tabel purchases
         $stats = Purchase::whereBetween('purchase_date', [$startDate, $endDate])
-            ->where('purchase_status', true)
+            ->where('purchase_status', 'paid')
             ->selectRaw('
                 COUNT(*) as total_transactions,
-                SUM(purchase_total) as total_amount,
-                AVG(purchase_total) as average_transaction,
-                MAX(purchase_total) as max_transaction,
-                MIN(purchase_total) as min_transaction
+                SUM(purchase_grand_total) as total_amount,
+                AVG(purchase_grand_total) as average_transaction,
+                MAX(purchase_grand_total) as max_transaction,
+                MIN(purchase_grand_total) as min_transaction
             ')
             ->first();
 
@@ -134,6 +138,9 @@ class SummaryRepository implements SummaryRepositoryInterface
             'min_transaction' => (float) ($stats->min_transaction ?? 0),
         ];
     }
+
+    // ... Method sisanya (getSalesByDate, getTopSellingItems, dll) biarkan tetap sama 
+    // karena logic-nya spesifik untuk Sales dan tidak terpengaruh error Purchase ini.
 
     /**
      * Get detailed sales data for a specific date
@@ -290,6 +297,7 @@ class SummaryRepository implements SummaryRepositoryInterface
      */
     public function getHourlySalesDistribution(Carbon $startDate, Carbon $endDate): Collection
     {
+        // NOTE: Function HOUR() works in MySQL. If using PostgreSQL, use EXTRACT(HOUR FROM sales_date)
         return Sales::whereBetween('sales_date', [$startDate, $endDate])
             ->where('sales_status', true)
             ->selectRaw('
