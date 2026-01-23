@@ -63,6 +63,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/export', [PurchaseController::class, 'export'])->name('export');
         Route::get('/create', [PurchaseController::class, 'create'])->name('create');
         Route::post('/', [PurchaseController::class, 'store'])->name('store');
+
+        Route::get('/{id}/edit', [PurchaseController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [PurchaseController::class, 'update'])->name('update');
         
         // Route Hide/Restore
         Route::get('/{id}', [PurchaseController::class, 'show'])->name('show');

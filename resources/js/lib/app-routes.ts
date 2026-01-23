@@ -56,6 +56,9 @@ export const appRoutes = {
         create: () => '/purchases/create',
         store: () => '/purchases', // POST
         show: (id: number | string) => `/purchases/${id}`,
+        edit: (id: string | number) => `/purchases/${id}/edit`,
+        update: (id: string | number) => `/purchases/${id}`,
+        destroy: (id: string | number) => `/purchases/${id}`,
     },
 } as const;
 

@@ -156,6 +156,44 @@ class PurchaseRepository implements PurchaseRepositoryInterface {
         return $purchase;
     }
 
+    // Update Function
+    public function update($id, array $data) {
+        return DB::transaction(function () use ($id, $data) {
+            // Cari purchase berdasarkan invoice number
+            $purchase = Purchase::where('purchase_invoice_number', $id)->firstOrFail();
+            
+            // 1. Update Header
+            $purchase->update([
+                'supplier_id' => $data['supplier_id'],
+                'purchase_date' => $data['date'], // Pastikan key dari array 'date' atau 'purchase_date' konsisten
+                'purchase_grand_total' => $data['total_amount'],
+                'purchase_subtotal' => $data['total_amount'], // Asumsi subtotal = grand total
+            ]);
+
+            // 2. Sync Details: Hapus detail lama -> Buat baru
+            $purchase->details()->forceDelete();
+
+            foreach ($data['items'] as $item) {
+                // Hitung subtotal per item
+                $discount = $item['discount_item'] ?? 0;
+                $priceAfterDiscount = $item['buy_price'] - ($item['buy_price'] * ($discount / 100));
+                $subtotal = $priceAfterDiscount * $item['quantity'];
+
+                PurchaseDetail::create([
+                    'purchase_invoice_number' => $purchase->purchase_invoice_number,
+                    'item_code' => $item['item_code'],
+                    'quantity' => $item['quantity'],
+                    'buy_price' => $item['buy_price'],
+                    'purchase_discount_item' => $discount,
+                    'purchase_hasil_diskon_item' => $priceAfterDiscount,
+                    'total_item_price' => $subtotal,
+                ]);
+            }
+
+            return $purchase;
+        });
+    }
+
     // Logic Hide
     public function destroy($invoiceNumber) {
         $purchase = Purchase::find($invoiceNumber);

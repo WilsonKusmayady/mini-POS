@@ -34,6 +34,34 @@ class PurchaseService
         return $this->purchaseRepository->getPurchaseWithDetails($invoiceNumber);
     }
 
+    public function getPurchaseById($id) 
+    {
+        return $this->purchaseRepository->getPurchaseWithDetails($id);
+    }
+
+    public function updatePurchase($id, array $data)
+    {
+        $totalAmount = 0;
+
+        // Hitung Grand Total baru
+        foreach ($data['items'] as $item) {
+            $discount = $item['discount_item'] ?? 0;
+            $priceAfterDiscount = $item['buy_price'] - ($item['buy_price'] * ($discount / 100));
+            $subtotal = $priceAfterDiscount * $item['quantity'];
+            $totalAmount += $subtotal;
+        }
+
+        // Siapkan data untuk repository
+        $updateData = [
+            'supplier_id' => $data['supplier_id'],
+            'date' => $data['purchase_date'], 
+            'total_amount' => $totalAmount,
+            'items' => $data['items']
+        ];
+
+        return $this->purchaseRepository->update($id, $updateData);
+    }
+
     public function createPurchase(array $data)
     {
         return DB::transaction(function () use ($data) {

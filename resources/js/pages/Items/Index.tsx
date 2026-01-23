@@ -391,7 +391,7 @@ export default function ItemIndex({ items, filters }: IndexProps) {
                                         onCheckedChange={handleShowInactiveChange}
                                     />
                                     <Label htmlFor="show-inactive" className="cursor-pointer text-sm font-medium">
-                                        {filters?.show_inactive ? 'Menampilkan Non-Aktif' : 'Hanya Aktif'}
+                                        {filters?.show_inactive ? 'Show Inactive' : 'Show Inactive'}
                                     </Label>
                                 </div>
 

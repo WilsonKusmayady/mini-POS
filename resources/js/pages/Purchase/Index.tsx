@@ -3,7 +3,7 @@ import { appRoutes } from '@/lib/app-routes';
 import { type BreadcrumbItem, SharedData } from '@/types';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Plus, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, X, RefreshCcw } from 'lucide-react';
+import { Plus, Download, Filter, Eye, MoreVertical, Search, ChevronLeft, ChevronRight, Trash2, X, RefreshCcw, Pencil } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -480,7 +480,6 @@ export default function PurchaseIndex({ suppliers_list, users_list }: PurchaseIn
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                                     
-                                                    {/* [LOGIK MENU RESTORE VS HAPUS] */}
                                                     {item.deleted_at ? (
                                                         <DropdownMenuItem 
                                                             onClick={() => openRestoreModal(item)}
@@ -495,6 +494,14 @@ export default function PurchaseIndex({ suppliers_list, users_list }: PurchaseIn
                                                                     <Eye className="mr-2 h-4 w-4" /> Detail
                                                                 </Link>
                                                             </DropdownMenuItem>
+
+                                                            {/* TOMBOL EDIT DISINI */}
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={appRoutes.purchases.edit(item.purchase_invoice_number)} className="cursor-pointer flex w-full">
+                                                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                                                </Link>
+                                                            </DropdownMenuItem>
+
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem 
                                                                 onClick={() => openDeleteModal(item)} 

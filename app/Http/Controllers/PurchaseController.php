@@ -9,6 +9,7 @@ use App\Models\Item;
 use App\Models\User; 
 use App\Models\Supplier; 
 use App\Http\Requests\StorePurchaseRequest;
+use App\Http\Requests\UpdatePurchaseRequest;
 use Illuminate\Support\Facades\Validator; 
 use Inertia\Inertia;
 
@@ -178,15 +179,27 @@ class PurchaseController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $purchase = $this->purchaseService->getPurchaseById($id);
+        
+        $purchase->load(['details.item', 'supplier']);
+        
+        $suppliers = Supplier::select('supplier_id', 'supplier_name')->get();
+
+        return Inertia::render('Purchase/Edit', [
+            'purchase' => $purchase,
+            'suppliers' => $suppliers,
+        ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdatePurchaseRequest $request, string $id)
     {
-        //
+        $this->purchaseService->updatePurchase($id, $request->validated());
+
+        return redirect()->route('purchases.index')
+            ->with('success', 'Transaksi pembelian berhasil diperbarui.');
     }
 
     /**

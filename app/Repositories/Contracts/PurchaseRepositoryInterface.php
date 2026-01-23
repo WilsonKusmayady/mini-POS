@@ -14,4 +14,5 @@ interface PurchaseRepositoryInterface {
     public function getPaginated(array $filters = [], int $perPage = 10);
 
     public function getForExport(array $filters = []);
+    public function update($id, array $data);
 }
