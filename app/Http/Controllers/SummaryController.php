@@ -183,7 +183,7 @@ class SummaryController extends Controller
     /**
      * Export summary to Excel
      */
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request)
     {
         $request->validate([
             'type' => 'sometimes|in:all,sales,purchase',
@@ -193,12 +193,27 @@ class SummaryController extends Controller
 
         try {
             return $this->summaryService->exportSummary($request->all());
-            
         } catch (\Exception $e) {
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengexport data: ' . $e->getMessage(),
+                    'error' => config('app.debug') ? $e->getMessage() : 'Terjadi kesalahan internal'
+                ], 500);
+            }
+
+            // For non-JSON requests, show simple error
             return response()->stream(function () use ($e) {
-                echo "Error: " . $e->getMessage();
+                echo "Error exporting data: " . $e->getMessage() . "\n\n";
+                if (config('app.debug')) {
+                    echo "Debug Info:\n";
+                    echo "File: " . $e->getFile() . "\n";
+                    echo "Line: " . $e->getLine() . "\n";
+                    echo "Trace:\n" . $e->getTraceAsString();
+                }
             }, 500, [
                 'Content-Type' => 'text/plain',
+                'Cache-Control' => 'no-cache',
             ]);
         }
     }

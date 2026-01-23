@@ -20,21 +20,16 @@ class SummaryRepository implements SummaryRepositoryInterface
     {
         return Sales::whereBetween('sales_date', [$startDate, $endDate])
             ->where('sales_status', true)
+            ->join('sales_details', 'sales.sales_invoice_code', '=', 'sales_details.sales_invoice_code')
             ->selectRaw('
-                DATE(sales_date) as date,
-                COUNT(*) as transaction_count,
-                SUM(sales_grand_total) as total_transactions,
-                SUM(sales_hasil_discount_value) as total_discount,
-                AVG(sales_grand_total) as average_transaction
+                DATE(sales.sales_date) as date,
+                COUNT(DISTINCT sales.sales_invoice_code) as transaction_count,
+                SUM(sales.sales_grand_total) as total_transactions,
+                SUM(sales.sales_hasil_discount_value) as total_discount,
+                AVG(sales.sales_grand_total) as average_transaction,
+                SUM(sales_details.sales_quantity) as items_sold
             ')
-            ->with(['sales_details' => function ($query) {
-                $query->selectRaw('
-                    sales_invoice_code,
-                    SUM(sales_quantity) as total_items
-                ')
-                ->groupBy('sales_invoice_code');
-            }])
-            ->groupByRaw('DATE(sales_date)')
+            ->groupByRaw('DATE(sales.sales_date)')
             ->orderBy('date', 'desc')
             ->get()
             ->map(function ($sale) {
@@ -44,10 +39,11 @@ class SummaryRepository implements SummaryRepositoryInterface
                     'total_transactions' => (float) $sale->total_transactions,
                     'total_discount' => (float) $sale->total_discount,
                     'average_transaction' => (float) $sale->average_transaction,
-                    'items_sold' => (int) ($sale->sales_details->first()->total_items ?? 0),
+                    'items_sold' => (int) $sale->items_sold,
                 ];
             });
     }
+
 
     /**
      * Get purchase summary data

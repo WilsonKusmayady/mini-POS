@@ -6,6 +6,8 @@ use App\Repositories\Contracts\SummaryRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Exports\SummaryExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SummaryService
 {
@@ -184,67 +186,25 @@ class SummaryService
     /**
      * Export summary to Excel
      */
-    public function exportSummary(array $params): StreamedResponse
+    public function exportSummary(array $params)
     {
-        $data = $this->getSummaryData($params);
-        
-        $fileName = 'summary_' . $params['start_date'] . '_to_' . $params['end_date'] . '.csv';
-        
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-        ];
+        try {
+            $data = $this->getSummaryData($params);
 
-        return new StreamedResponse(function () use ($data, $params) {
-            $handle = fopen('php://output', 'w');
+            $fileName = 'summary_' . $params['start_date'] . '_to_' . $params['end_date'] . '.xlsx';
+
+            return Excel::download(
+                new SummaryExport($data, $params),
+                $fileName,
+            );
             
-            // Write BOM for UTF-8
-            fwrite($handle, "\xEF\xBB\xBF");
-            
-            // Write headers
-            fputcsv($handle, [
-                'Tanggal',
-                'Jumlah Transaksi',
-                'Total Transaksi (Rp)',
-                'Total Diskon (Rp)',
-                'Rata-rata/Transaksi (Rp)',
-                'Item Terjual'
+        } catch (\Exception $e) {
+            \Log::error('Error in exportSummary: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
             ]);
-            
-            // Write data
-            foreach ($data['summary'] as $row) {
-                fputcsv($handle, [
-                    $row['date'],
-                    $row['transaction_count'],
-                    $row['total_transactions'],
-                    $row['total_discount'],
-                    $row['average_transaction'],
-                    $row['items_sold'] ?? 0
-                ]);
-            }
-            
-            // Write summary row
-            fputcsv($handle, []);
-            fputcsv($handle, ['TOTAL', '', '', '', '']);
-            
-            $totals = [
-                'transactions' => collect($data['summary'])->sum('transaction_count'),
-                'total' => collect($data['summary'])->sum('total_transactions'),
-                'discount' => collect($data['summary'])->sum('total_discount'),
-                'items' => collect($data['summary'])->sum('items_sold'),
-            ];
-            
-            fputcsv($handle, [
-                'Total Transaksi',
-                $totals['transactions'],
-                $totals['total'],
-                $totals['discount'],
-                '',
-                $totals['items']
-            ]);
-            
-            fclose($handle);
-        }, 200, $headers);
+            throw $e;
+        }
     }
 
     /**

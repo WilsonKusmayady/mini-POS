@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Search, Download, Filter, BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
-import { FormEventHandler, useState, useEffect } from 'react';
+import { Calendar, Search, Download, Filter, BarChart3, TrendingUp, TrendingDown, Printer } from 'lucide-react';
+import { FormEventHandler, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Separator } from "@/components/ui/separator";
@@ -55,6 +55,9 @@ export default function SummaryIndex() {
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
   const [transactionSummary, setTransactionSummary] = useState<TransactionTypeSummary[]>([]);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  
+  // Ref untuk tabel yang akan di-print
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Set default dates
   useEffect(() => {
@@ -187,6 +190,396 @@ export default function SummaryIndex() {
     }
   };
 
+  const handlePrint = () => {
+    if (summaryData.length === 0) {
+      toast.error('Tidak ada data untuk dicetak');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Gagal membuka jendela cetak. Izinkan popup untuk website ini.');
+      return;
+    }
+
+    const tableElement = tableRef.current;
+    if (!tableElement) {
+      toast.error('Tidak dapat menemukan tabel untuk dicetak');
+      return;
+    }
+
+    // Filter data berdasarkan tanggal yang dipilih
+    const filteredData = summaryData.filter(day => {
+      const dayDate = new Date(day.date);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Set waktu ke awal hari untuk start dan akhir hari untuk end
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      dayDate.setHours(0, 0, 0, 0);
+      
+      return dayDate >= start && dayDate <= end;
+    });
+
+    // Recalculate totals for filtered data
+    const printTotals = {
+      totalTransactions: filteredData.reduce((sum, day) => sum + day.transaction_count, 0),
+      totalAmount: filteredData.reduce((sum, day) => sum + day.total_transactions, 0),
+      totalDiscount: filteredData.reduce((sum, day) => sum + day.total_discount, 0),
+      totalItems: filteredData.reduce((sum, day) => sum + day.items_sold, 0),
+      averagePerTransaction: filteredData.reduce((sum, day) => sum + day.transaction_count, 0) > 0 
+        ? filteredData.reduce((sum, day) => sum + day.total_transactions, 0) / filteredData.reduce((sum, day) => sum + day.transaction_count, 0)
+        : 0
+    };
+
+    // Filter transaction summary juga
+    const filteredTransactionSummary = transactionSummary.filter(day => {
+      const dayDate = new Date(day.date);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      dayDate.setHours(0, 0, 0, 0);
+      
+      return dayDate >= start && dayDate <= end;
+    });
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Summary Transaksi - ${formatDateRange(startDate, endDate)}</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              margin: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #4f46e5;
+              padding-bottom: 15px;
+            }
+            .header h1 {
+              color: #4f46e5;
+              margin: 0;
+              font-size: 24px;
+            }
+            .header p {
+              color: #666;
+              margin: 5px 0;
+              font-size: 14px;
+            }
+            .filter-info {
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              padding: 15px;
+              margin-bottom: 20px;
+            }
+            .filter-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 20px;
+              margin-bottom: 10px;
+            }
+            .filter-item {
+              flex: 1;
+              min-width: 200px;
+            }
+            .filter-label {
+              font-weight: 600;
+              color: #475569;
+              font-size: 12px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .filter-value {
+              color: #1e293b;
+              font-weight: 500;
+              padding: 4px 8px;
+              background: white;
+              border-radius: 4px;
+              border: 1px solid #e2e8f0;
+            }
+            .info-box {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 20px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 10px;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #4b5563;
+            }
+            .info-value {
+              font-weight: 600;
+              color: #111827;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+              font-size: 14px;
+            }
+            th {
+              background-color: #4f46e5;
+              color: white;
+              font-weight: 600;
+              padding: 12px;
+              text-align: left;
+              border: 1px solid #ddd;
+            }
+            td {
+              padding: 10px;
+              border: 1px solid #ddd;
+            }
+            tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            .total-row {
+              background-color: #e0e7ff !important;
+              font-weight: bold;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #6b7280;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 10px;
+            }
+            .date-range {
+              background: #4f46e5;
+              color: white;
+              padding: 8px 16px;
+              border-radius: 6px;
+              font-weight: 600;
+              margin: 10px 0;
+              display: inline-block;
+            }
+            @media print {
+              body {
+                margin: 0;
+                font-size: 12px;
+              }
+              .no-print {
+                display: none;
+              }
+              table {
+                page-break-inside: auto;
+              }
+              tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>LAPORAN SUMMARY TRANSAKSI</h1>
+            <div class="date-range">
+              ${formatDateRange(startDate, endDate)}
+            </div>
+            <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })} ${new Date().toLocaleTimeString('id-ID')}</p>
+          </div>
+          
+          <div class="filter-info">
+            <div class="filter-row">
+              <div class="filter-item">
+                <div class="filter-label">Periode Tanggal</div>
+                <div class="filter-value">${formatDateRange(startDate, endDate)}</div>
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">Jenis Transaksi</div>
+                <div class="filter-value">${getTransactionTypeLabel(transactionType)}</div>
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">Jumlah Hari</div>
+                <div class="filter-value">${filteredData.length} hari</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-box">
+            <div class="info-row">
+              <span class="info-label">Total Transaksi:</span>
+              <span class="info-value">${printTotals.totalTransactions} transaksi</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total Penjualan:</span>
+              <span class="info-value">${formatCurrency(printTotals.totalAmount)}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total Diskon:</span>
+              <span class="info-value">${formatCurrency(printTotals.totalDiscount)}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Item Terjual:</span>
+              <span class="info-value">${printTotals.totalItems} item</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Rata-rata per Transaksi:</span>
+              <span class="info-value">${formatCurrency(printTotals.averagePerTransaction)}</span>
+            </div>
+          </div>
+          
+          <h2 style="color: #4f46e5; margin-top: 20px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb;">
+            📊 Ringkasan Transaksi Harian (${filteredData.length} hari)
+          </h2>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Tanggal</th>
+                <th style="text-align: right;">Jml Transaksi</th>
+                <th style="text-align: right;">Item Terjual</th>
+                <th style="text-align: right;">Total Transaksi</th>
+                <th style="text-align: right;">Total Diskon</th>
+                <th style="text-align: right;">Rata-rata/Transaksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredData.map((day, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${formatDate(day.date)}</td>
+                  <td style="text-align: right;">${day.transaction_count}</td>
+                  <td style="text-align: right;">${day.items_sold}</td>
+                  <td style="text-align: right;">${formatCurrency(day.total_transactions)}</td>
+                  <td style="text-align: right;">${formatCurrency(day.total_discount)}</td>
+                  <td style="text-align: right;">${formatCurrency(day.average_transaction)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="2"><strong>TOTAL (${filteredData.length} hari)</strong></td>
+                <td style="text-align: right;"><strong>${printTotals.totalTransactions}</strong></td>
+                <td style="text-align: right;"><strong>${printTotals.totalItems}</strong></td>
+                <td style="text-align: right;"><strong>${formatCurrency(printTotals.totalAmount)}</strong></td>
+                <td style="text-align: right;"><strong>${formatCurrency(printTotals.totalDiscount)}</strong></td>
+                <td style="text-align: right;"><strong>${formatCurrency(printTotals.averagePerTransaction)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          ${transactionType === 'all' && filteredTransactionSummary.length > 0 ? `
+            <h2 style="margin-top: 30px; color: #4f46e5; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+              📈 Perbandingan Purchase vs Sales (${filteredTransactionSummary.length} hari)
+            </h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Tanggal</th>
+                  <th style="text-align: right;">Purchase</th>
+                  <th style="text-align: right;">Sales</th>
+                  <th style="text-align: right;">Selisih</th>
+                  <th style="text-align: right;">Diskon</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredTransactionSummary.map((day, index) => {
+                  const difference = day.sales_total - day.purchase_total;
+                  return `
+                    <tr>
+                      <td>${index + 1}</td>
+                      <td>${formatDate(day.date)}</td>
+                      <td style="text-align: right;">
+                        <div>${day.purchase_count} transaksi</div>
+                        <div>${formatCurrency(day.purchase_total)}</div>
+                      </td>
+                      <td style="text-align: right;">
+                        <div>${day.sales_count} transaksi</div>
+                        <div>${formatCurrency(day.sales_total)}</div>
+                      </td>
+                      <td style="text-align: right;">
+                        <div style="color: ${difference >= 0 ? '#059669' : '#dc2626'}; font-weight: 600;">
+                          ${formatCurrency(difference)}
+                        </div>
+                      </td>
+                      <td style="text-align: right;">${formatCurrency(day.total_discount)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => {
+                window.close();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    toast.success('Mempersiapkan dokumen untuk dicetak...');
+  };
+
+  const formatDateRange = (start: string, end: string) => {
+    if (!start || !end) return '';
+
+    if (start === end) {
+      return formatDate(start);
+    }
+
+    return `${formatDate(start)} - ${formatDate(end)}`;
+  };
+
+
+  // Helper functions untuk print
+  const getTransactionTypeLabel = (type: string) => {
+    switch(type) {
+      case 'all': return 'Semua Transaksi';
+      case 'sales': return 'Sales (Penjualan)';
+      case 'purchase': return 'Purchase (Pembelian)';
+      default: return type;
+    }
+  };
+
+  const getDateRangeLabel = (range: string) => {
+    switch(range) {
+      case 'today': return 'Hari Ini';
+      case 'week': return '1 Minggu Terakhir';
+      case 'month': return '1 Bulan Terakhir';
+      case 'custom': return 'Custom Tanggal';
+      default: return range;
+    }
+  };
+
+  const formatDatePrint = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -224,17 +617,7 @@ export default function SummaryIndex() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={summaryData.length === 0 || loading}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export Excel
-            </Button>
-          </div>
+          {/* Hapus tombol export dari header utama */}
         </div>
 
         {/* Filter Section */}
@@ -243,6 +626,11 @@ export default function SummaryIndex() {
             <CardTitle className="flex items-center gap-2">
               <Filter className="w-5 h-5" />
               Filter Summary
+              {startDate && endDate && (
+                <Badge variant="outline" className="ml-2">
+                  {formatDateRange(startDate, endDate)}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -433,11 +821,33 @@ export default function SummaryIndex() {
         <div className="grid gap-4 md:grid-cols-2">
           {/* Sales Summary Table */}
           <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Ringkasan Transaksi Harian</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Perincian transaksi per hari dari {formatDate(startDate)} sampai {formatDate(endDate)}
-              </p>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Ringkasan Transaksi Harian</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Perincian transaksi per hari {formatDateRange(startDate, endDate)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrint}
+                  disabled={summaryData.length === 0 || loading}
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print 
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={summaryData.length === 0 || loading}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Excel
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -447,7 +857,23 @@ export default function SummaryIndex() {
                   ))}
                 </div>
               ) : summaryData.length > 0 ? (
-                <div className="border rounded-lg">
+                <div className="border rounded-lg" ref={tableRef}>
+                  <div className="p-3 bg-muted/30 border-b">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-4">
+                        <span className="font-medium">Filter Aktif:</span>
+                        <Badge variant="outline">
+                          {formatDateRange(startDate, endDate)}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {getTransactionTypeLabel(transactionType)}
+                        </Badge>
+                      </div>
+                      <span className="text-muted-foreground">
+                        Menampilkan {summaryData.length} hari transaksi
+                      </span>
+                    </div>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -488,7 +914,7 @@ export default function SummaryIndex() {
                       
                       {/* Total Row */}
                       <TableRow className="bg-muted/50 font-bold">
-                        <TableCell>TOTAL</TableCell>
+                        <TableCell>TOTAL ({summaryData.length} hari)</TableCell>
                         <TableCell className="text-right">
                           <Badge variant="default">{totals.totalTransactions}</Badge>
                         </TableCell>
@@ -519,10 +945,125 @@ export default function SummaryIndex() {
           {/* Purchase vs Sales Comparison */}
           {transactionSummary.length > 0 && transactionType === 'all' && (
             <Card className="md:col-span-2">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Perbandingan Purchase vs Sales</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Filter data untuk print
+                      const filteredForPrint = transactionSummary.filter(day => {
+                        const dayDate = new Date(day.date);
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        
+                        start.setHours(0, 0, 0, 0);
+                        end.setHours(23, 59, 59, 999);
+                        dayDate.setHours(0, 0, 0, 0);
+                        
+                        return dayDate >= start && dayDate <= end;
+                      });
+
+                      const printContent = `
+                        <html>
+                          <head>
+                            <title>Perbandingan Purchase vs Sales - ${formatDate(startDate)} sampai ${formatDate(endDate)}</title>
+                            <style>
+                              body { font-family: 'Segoe UI', sans-serif; margin: 20px; }
+                              h1 { color: #4f46e5; text-align: center; }
+                              .filter-info {
+                                background: #f1f5f9;
+                                padding: 10px;
+                                border-radius: 6px;
+                                margin: 15px 0;
+                                font-size: 14px;
+                              }
+                              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                              th { background-color: #4f46e5; color: white; }
+                              .footer {
+                                margin-top: 30px;
+                                text-align: center;
+                                font-size: 12px;
+                                color: #6b7280;
+                              }
+                            </style>
+                          </head>
+                          <body>
+                            <h1>Perbandingan Purchase vs Sales</h1>
+                            <div class="filter-info">
+                              <strong>Periode:</strong> ${formatDate(startDate)} - ${formatDate(endDate)}<br>
+                              <strong>Jumlah Data:</strong> ${filteredForPrint.length} hari<br>
+                              <strong>Tanggal Cetak:</strong> ${new Date().toLocaleDateString('id-ID')}
+                            </div>
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>No</th>
+                                  <th>Tanggal</th>
+                                  <th>Purchase</th>
+                                  <th>Sales</th>
+                                  <th>Selisih</th>
+                                  <th>Diskon</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${filteredForPrint.map((day, index) => {
+                                  const difference = day.sales_total - day.purchase_total;
+                                  return `
+                                    <tr>
+                                      <td>${index + 1}</td>
+                                      <td>${formatDate(day.date)}</td>
+                                      <td>
+                                        <div>${day.purchase_count} transaksi</div>
+                                        <div>${formatCurrency(day.purchase_total)}</div>
+                                      </td>
+                                      <td>
+                                        <div>${day.sales_count} transaksi</div>
+                                        <div>${formatCurrency(day.sales_total)}</div>
+                                      </td>
+                                      <td style="color: ${difference >= 0 ? 'green' : 'red'}">
+                                        ${formatCurrency(difference)}
+                                      </td>
+                                      <td>${formatCurrency(day.total_discount)}</td>
+                                    </tr>
+                                  `;
+                                }).join('')}
+                              </tbody>
+                            </table>
+                            <div class="footer">
+                              <p>Dicetak dari Sistem Manajemen Transaksi • Periode: ${formatDate(startDate)} - ${formatDate(endDate)}</p>
+                            </div>
+                          </body>
+                        </html>
+                      `;
+                      
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(printContent);
+                        printWindow.document.close();
+                        printWindow.print();
+                      }
+                    }}
+                    disabled={transactionSummary.length === 0}
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-3 bg-muted/30 rounded-md">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">
+                      Periode: {formatDate(startDate)} - {formatDate(endDate)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {transactionSummary.length} hari data
+                    </span>
+                  </div>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
